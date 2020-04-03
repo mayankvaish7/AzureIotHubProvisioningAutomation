@@ -1,0 +1,9 @@
+{
+  "tool": "Credential Scanner",
+  "suppressions": [
+    {
+      "placeholder": "p2I7bZSawkmOAjlPPzLIMIiW2RL8WmVk73la8gCr9L4%3D",
+      "_justification": "This is a test string used to test the Hash type and not a credential. "
+    }
+  ]
+}

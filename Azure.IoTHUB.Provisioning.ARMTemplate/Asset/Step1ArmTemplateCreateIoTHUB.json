@@ -1,0 +1,1568 @@
+﻿/*=============================================================================
+ |   Assignment:  Azure IoTHub ARMTemplate Provisioning and Deployment.
+ |       Author:  Mayank Vaish - mayankvaish1@gmail.com
+ |
+ |  Description:  This Azure ARM Template can Create Azure IoTHub Dynamically along with all Storage Account Service,
+                  Service Bus Topics, Service Bus Topics Subscriptions and Rules etc.
+ |
+ |     Language:  JSon
+ |                  
+ | Deficiencies:  
+ *===========================================================================*/
+
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json",
+  "contentVersion": "1.0.0.0",
+  //This will create IoTHub, Storage account, ServiceBUs, Queues, Topics, Authorizationrules deployment etc.
+  "parameters": {
+    "subscriptionId": {
+      "type": "string",
+      "defaultValue": "[subscription().subscriptionid]",
+      "metadata": {
+        "description": "The subscription ID of the Azure subscription to deploy into."
+      }
+    },
+    "subscriptionName": {
+      "type": "string",
+      "defaultValue": "[subscription().displayName]",
+      "metadata": {
+        "description": "The subscription Name of the Azure subscription to deploy into."
+      }
+    },
+    "IoTHubName_in": {
+      "type": "string",
+      "defaultValue": "SampleIoTHub",
+      "metadata": {
+        "description": "The name of the IoT Hub to create."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "westus",
+      "metadata": {
+        "description": "The datacenter to use for the deployment."
+      }
+    },
+    "consumer_group": {
+      "type": "string",
+      "defaultValue": "ContosoConsumers",
+      "metadata": {
+        "description": "The consumer group to assign to the messages for use in ASA."
+      }
+    },
+    "sku_name": {
+      "type": "string",
+      "defaultValue": "S1",
+      "metadata": {
+        "description": "The SKU to use for the IoT Hub."
+      }
+    },
+    "sku_units": {
+      "type": "string",
+      "defaultValue": "1",
+      "metadata": {
+        "description": "The number of IoT Hub units."
+      }
+    },
+    "d2c_partitions": {
+      "type": "string",
+      "defaultValue": "4",
+      "metadata": {
+        "description": "Partitions used for the event stream."
+      }
+    },
+    "storageAccountName_in": {
+      "type": "string",
+      "defaultValue": "samplestorage",
+      "metadata": {
+        "description": "Name of storage account to be created."
+      }
+    },
+    "storageContainerName": {
+      "type": "string",
+      "defaultValue": "sampleresults",
+      "metadata": {
+        "description": "Name of the container in which to place the routed data."
+      }
+    },
+    "storage_endpoint": {
+      "type": "string",
+      "defaultValue": "SampleStorageEndpoint",
+      "metadata": {
+        "description": "Name of the endpoint for the storage account."
+      }
+    },
+    "service_bus_namespace_in": {
+      "type": "string",
+      "defaultValue": "SampleServiceBus",
+      "metadata": {
+        "description": "Namespace of the service bus that has the queue to which messages are routed."
+      }
+    },
+    "service_bus_queue_in": {
+      "type": "string",
+      "defaultValue": "SampleSBQueue",
+      "metadata": {
+        "description": "Name of the service bus queue to which to route messages."
+      }
+    },
+    "SB_queue_endpointTwinChangeEvents": {
+      "type": "string",
+      "defaultValue": "TwinChangeEvents",
+      "metadata": {
+        "description": "Endpoint to use for routing messages to the service bus queue."
+      }
+    },
+    "service_bus_queue_endpointResponse": {
+      "type": "string",
+      "defaultValue": "SampleSBQueueEndpointRE",
+      "metadata": {
+        "description": "Endpoint to use for routing messages to the service bus queue."
+      }
+    },
+    "AuthRules_sb_queuePE": {
+      "type": "string",
+      "defaultValue": "AuthRules_sb_queuePE",
+      "metadata": {
+        "description": "Authorization rules for the service bus queue."
+      }
+    },
+    "AuthRules_sb_queueRE": {
+      "type": "string",
+      "defaultValue": "AuthRules_sb_queueRE",
+      "metadata": {
+        "description": "Authorization rules for the service bus queue."
+      }
+    },
+    //Azure Functions
+
+    "appName": {
+      "type": "string",
+      "defaultValue": "SampleFuncApp",
+      "metadata": {
+        "description": "The name of the function app that you wish to create."
+      }
+    },
+    "storageAccountType": {
+      "type": "string",
+      "defaultValue": "Standard_LRS",
+      "allowedValues": [ "Standard_LRS", "Standard_GRS", "Standard_RAGRS" ],
+      "metadata": {
+        "description": "Storage Account type"
+      }
+    },
+    "runtime": {
+      "type": "string",
+      "defaultValue": "node",
+      "allowedValues": [ "node", "dotnet", "java" ],
+      "metadata": {
+        "description": "The language worker runtime to load in the function app."
+      }
+    },
+    "repoURL": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "The URL for the GitHub repository that contains the project to deploy."
+      }
+    },
+    "branch": {
+      "type": "string",
+      "defaultValue": "master",
+      "metadata": {
+        "description": "The branch of the GitHub repository to use."
+      }
+    },
+    "Samplefunctionpackagebloburl": {
+      "type": "string",
+      "defaultValue": "https://XXXXXXXXX.blob.core.windows.net/azurefunction/XXXXXXXXX.zip?sp=r&st=2019-10-10T11:31:13Z&se=2020-11-29T19:31:13Z&spr=https&sv=2018-03-28&sig=XXXXXXXXXXXXXX&sr=b",
+      "metadata": {
+        "description": "Sample Functions Package Blob URL ."
+      }
+    }
+  },
+  "variables": {
+    //IoTHub Variables
+    "queueAuthorizationRuleResourceId1": "[resourceId('Microsoft.ServiceBus/namespaces/queues/authorizationRules', variables('service_bus_namespace'), variables('service_bus_queuePendingevents'), parameters('AuthRules_sb_queuePE'))]",
+    "queueAuthorizationRuleResourceId2": "[resourceId('Microsoft.ServiceBus/namespaces/queues/authorizationRules', variables('service_bus_namespace'), variables('service_bus_queueResponse'), parameters('AuthRules_sb_queueRE'))]",
+    "queueAuthorizationRuleResourceId3": "[resourceId('Microsoft.ServiceBus/namespaces/topics/authorizationRules', variables('service_bus_namespace'), 'events', 'iothubroutes_Sample')]",
+
+    "iotHubName": "[concat(parameters('IotHubName_in'),uniqueString(resourceGroup().id))]",
+    "storageAccountName": "[concat(parameters('storageAccountName_in'),uniqueString(resourceGroup().id))]",
+    "service_bus_namespace": "[concat(parameters('service_bus_namespace_in'),uniqueString(resourceGroup().id))]",
+    "service_bus_queuePendingevents": "pendingevents",
+    "dataFactoryName": "[concat('DFactSample', uniqueString(resourceGroup().id))]",
+    "factoryId": "[concat('Microsoft.DataFactory/factories/', variables('dataFactoryName'))]",
+    "service_bus_queueResponse": "response",
+    "sbVersion": "2017-04-01",
+    "cosmosDBsbVersion": "2016-03-31",
+    "serviceBusTopicEvents": "events",
+    "serviceBusTopicAlerts": "alerts",
+    "TopicSubscriptionCheckDisconnected": "checkDisconnected",
+    //CosmosDB Variables
+    "cosmosDbAccount": "[concat('Sample1Cosmosdb', uniqueString(resourceGroup().id))]",
+    "SampleDatabaseName1": "CosmosDBDatabase1",
+    "SampledatabaseName2": "CosmosDBDatabase2",
+    "CustomerDataContainerName": "CustomerData",
+    "usersContainerName": "users",
+    "customersContainerName": "customers",
+    "deviceDataContainerName": "deviceData",
+    "eventsContainerName": "events",
+    "incidentsContainerName": "incidents",
+    "Sample1ContainerName": "incidentTypes",
+    "leasesContainerName": "leases",
+    "resourceId": "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount'))]",
+    "apiVersion": "[providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]]",
+    //Azure Functions Variables
+    "functionAppName": "[concat(parameters('appName'), uniqueString(resourceGroup().id))]",
+    "hostingPlanName": "[parameters('appName')]",
+    "applicationInsightsName": "[parameters('appName')]",
+    "storageAccountNameazfunc": "[concat('azfunc', uniqueString(resourceGroup().id))]",
+    "storageAccountid": "[concat(resourceGroup().id,'/providers/','Microsoft.Storage/storageAccounts/', variables('storageAccountName'))]",
+    "functionWorkerRuntime": "[parameters('runtime')]",
+    "functionBlobUrl": "[parameters('Samplefunctionpackagebloburl')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[variables('storageAccountName')]",
+      "apiVersion": "2018-07-01",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_LRS",
+        "tier": "Standard"
+      },
+      "kind": "Storage",
+      "properties": {},
+      "resources": [
+        {
+          "type": "blobServices/containers",
+          "apiVersion": "2018-07-01",
+          "name": "[concat('default/', parameters('storageContainerName'))]",
+          "properties": {
+            "publicAccess": "None"
+          },
+          "dependsOn": [
+            "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Microsoft.ServiceBus/namespaces",
+      "comments": "The Sku should be 'Standard' for this tutorial.",
+      "sku": {
+        "name": "Standard",
+        "tier": "Standard"
+      },
+      "name": "[variables('service_bus_namespace')]",
+      "apiVersion": "[variables('sbVersion')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "provisioningState": "Succeeded",
+        "metricId": "[concat('a4295411-5eff-4f81-b77e-276ab1ccda12:', variables('service_bus_namespace'))]",
+        "serviceBusEndpoint": "[concat('https://', variables('service_bus_namespace'),'.servicebus.windows.net:443/')]",
+        "status": "Active"
+      },
+      "dependsOn": [],
+      "resources": [
+        {
+          "type": "Microsoft.ServiceBus/namespaces/queues",
+          "name": "[concat(variables('service_bus_namespace'), '/', variables('service_bus_queuePendingevents'))]",
+          "apiVersion": "[variables('sbVersion')]",
+          "location": "[parameters('location')]",
+          "scale": null,
+          "properties": {
+            "lockDuration": "PT1M",
+            "maxSizeInMegabytes": 2048,
+            "requiresDuplicateDetection": true,
+            "requiresSession": false,
+            "defaultMessageTimeToLive": "P1D",
+            "deadLetteringOnMessageExpiration": false,
+            "enableBatchedOperations": false,
+            "duplicateDetectionHistoryTimeWindow": "PT1M",
+            "maxDeliveryCount": 10,
+            "status": "Active",
+            "autoDeleteOnIdle": "P10675199DT2H48M5.4775807S",
+            "enablePartitioning": true,
+            "enableExpress": false
+          },
+          "dependsOn": [
+            "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]"
+          ]
+        },
+        {
+          "type": "Microsoft.ServiceBus/namespaces/queues",
+          "name": "[concat(variables('service_bus_namespace'), '/', variables('service_bus_queueResponse'))]",
+          "apiVersion": "[variables('sbVersion')]",
+          "location": "[parameters('location')]",
+          "scale": null,
+          "properties": {
+            "lockDuration": "PT30S",
+            "maxSizeInMegabytes": 2048,
+            "requiresDuplicateDetection": false,
+            "requiresSession": true,
+            "defaultMessageTimeToLive": "PT1H",
+            "deadLetteringOnMessageExpiration": true,
+            "enableBatchedOperations": true,
+            "duplicateDetectionHistoryTimeWindow": "PT10M",
+            "maxDeliveryCount": 10,
+            "status": "Active",
+            "autoDeleteOnIdle": "P10675199DT2H48M5.4775807S",
+            "enablePartitioning": false,
+            "enableExpress": false
+          },
+          "dependsOn": [
+            "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]"
+          ]
+        },
+        {
+          "type": "Microsoft.ServiceBus/namespaces/topics",
+          "name": "[concat(variables('service_bus_namespace'), '/events')]",
+          "apiVersion": "[variables('sbVersion')]",
+          "location": "[parameters('location')]",
+          "scale": null,
+          "properties": {},
+          "dependsOn": [
+            "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]"
+          ],
+          "resources": [
+            {
+              "type": "Microsoft.ServiceBus/namespaces/topics/AuthorizationRules",
+              "apiVersion": "2017-04-01",
+              "name": "[concat(variables('service_bus_namespace'), '/events/iothubroutes_sample')]",
+              "location": "West US",
+              "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/topics', variables('service_bus_namespace'), 'events')]",
+                "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]"
+              ],
+              "properties": {
+                "rights": [
+                  "Send"
+                ]
+              }
+            },
+            {
+              "apiVersion": "[variables('sbVersion')]",
+              "name": "[concat(variables('service_bus_namespace'), '/events/AnotherSBTopicSubscriptions1')]",
+              "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions",
+              "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/topics', variables('service_bus_namespace'), 'events')]",
+                "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]"
+              ],
+              "properties": {
+                "lockDuration": "PT1M",
+                "requiresSession": false,
+                "defaultMessageTimeToLive": "P10675199D",
+                "deadLetteringOnMessageExpiration": false,
+                "deadLetteringOnFilterEvaluationExceptions": false,
+                "maxDeliveryCount": 3,
+                "status": "Active",
+                "enableBatchedOperations": false,
+                "autoDeleteOnIdle": "P10675199DT2H48M5.4775807S"
+              },
+              "resources": [
+                {
+                  "apiVersion": "2017-04-01",
+                  "name": "[concat(variables('service_bus_namespace'), '/events/AnotherSBTopicSubscriptions/AnotherSBTopicSubscriptions1')]",
+                  "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions/Rules",
+                  "dependsOn": [ "[resourceId('Microsoft.ServiceBus/namespaces/topics/subscriptions', variables('service_bus_namespace'), 'events', 'AnotherSBTopicSubscriptions')]" ],
+                  "properties": {
+                    "filterType": "SqlFilter",
+                    "sqlFilter": {
+                      "sqlExpression": "eventType = 'AnotherSBTopicSubscriptions'",
+                      "requiresPreprocessing": "false"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions",
+              "apiVersion": "2017-04-01",
+              "name": "[concat(variables('service_bus_namespace'), '/events/createResolution')]",
+              "location": "West US",
+              "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/topics', variables('service_bus_namespace'), 'events')]",
+                "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]"
+              ],
+              "properties": {
+                "lockDuration": "PT1M",
+                "requiresSession": false,
+                "defaultMessageTimeToLive": "P106751DT2H48M5.477S",
+                "deadLetteringOnMessageExpiration": false,
+                "deadLetteringOnFilterEvaluationExceptions": false,
+                "maxDeliveryCount": 10,
+                "status": "Active",
+                "enableBatchedOperations": false,
+                "autoDeleteOnIdle": "P106751DT2H48M5.477S"
+              }
+            },
+            {
+              "apiVersion": "[variables('sbVersion')]",
+              "name": "[concat(variables('service_bus_namespace'), '/events/ticketsCreate')]",
+              "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions",
+              "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/topics', variables('service_bus_namespace'), 'events')]",
+                "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]"
+              ],
+              "properties": {
+                "lockDuration": "PT1M",
+                "requiresSession": false,
+                "defaultMessageTimeToLive": "P10675199D",
+                "deadLetteringOnMessageExpiration": false,
+                "deadLetteringOnFilterEvaluationExceptions": false,
+                "maxDeliveryCount": 5,
+                "status": "Active",
+                "enableBatchedOperations": false,
+                "autoDeleteOnIdle": "P10675199DT2H48M5.4775807S"
+              },
+              "resources": [
+                {
+                  "apiVersion": "2017-04-01",
+                  "name": "[concat(variables('service_bus_namespace'), '/events/ticketsCreate/eventType')]",
+                  "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions/Rules",
+                  "dependsOn": [ "[resourceId('Microsoft.ServiceBus/namespaces/topics/subscriptions', variables('service_bus_namespace'), 'events', 'ticketsCreate')]" ],
+                  "properties": {
+                    "filterType": "SqlFilter",
+                    "sqlFilter": {
+                      "sqlExpression": "eventType='tickets.create'",
+                      "requiresPreprocessing": "false"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "apiVersion": "[variables('sbVersion')]",
+              "name": "[concat(variables('service_bus_namespace'), '/events/ticketsEmail')]",
+              "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions",
+              "dependsOn": [
+                "[resourceId('Microsoft.ServiceBus/namespaces/topics', variables('service_bus_namespace'), 'events')]",
+                "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]"
+              ],
+              "properties": {
+                "lockDuration": "PT1M",
+                "requiresSession": false,
+                "defaultMessageTimeToLive": "P10675199D",
+                "deadLetteringOnMessageExpiration": false,
+                "deadLetteringOnFilterEvaluationExceptions": false,
+                "maxDeliveryCount": 5,
+                "status": "Active",
+                "enableBatchedOperations": false,
+                "autoDeleteOnIdle": "P10675199DT2H48M5.4775807S"
+              },
+              "resources": [
+                {
+                  "apiVersion": "2017-04-01",
+                  "name": "[concat(variables('service_bus_namespace'), '/events/ticketsEmail/Default')]",
+                  "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions/Rules",
+                  "dependsOn": [ "[resourceId('Microsoft.ServiceBus/namespaces/topics/subscriptions', variables('service_bus_namespace'), 'events', 'ticketsEmail')]" ],
+                  "properties": {
+                    "filterType": "SqlFilter",
+                    "sqlFilter": {
+                      "sqlExpression": "eventType = 'smtp.email.incoming'",
+                      "requiresPreprocessing": "false"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+
+        {
+          "type": "Microsoft.ServiceBus/namespaces/topics",
+          "name": "[concat(variables('service_bus_namespace'), '/', variables('serviceBusTopicAlerts'))]",
+          "apiVersion": "[variables('sbVersion')]",
+          "location": "[parameters('location')]",
+          "scale": null,
+          "properties": {
+            "path": "variables('serviceBusTopicAlerts')"
+          },
+          "dependsOn": [
+            "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]"
+          ],
+          "resources": [
+            {
+              "apiVersion": "[variables('sbVersion')]",
+              "name": "email",
+              "type": "Subscriptions",
+              "dependsOn": [
+                "[variables('serviceBusTopicAlerts')]"
+              ],
+              "properties": {
+              },
+              "resources": [
+                {
+                  "apiVersion": "2017-04-01",
+                  "name": "Type",
+                  "type": "Rules",
+                  "dependsOn": [ "[resourceId('Microsoft.ServiceBus/namespaces/topics/subscriptions', variables('service_bus_namespace'), variables('serviceBusTopicAlerts'), 'email')]" ],
+                  "properties": {
+                    "filterType": "SqlFilter",
+                    "sqlFilter": {
+                      "sqlExpression": "type='email'",
+                      "requiresPreprocessing": "false"
+                    }
+                  }
+                },
+                {
+                  "apiVersion": "2017-04-01",
+                  "name": "email",
+                  "type": "Rules",
+                  "dependsOn": [ "[resourceId('Microsoft.ServiceBus/namespaces/topics/subscriptions', variables('service_bus_namespace'), variables('serviceBusTopicAlerts'), 'email')]" ],
+                  "properties": {
+                    "filterType": "SqlFilter",
+                    "sqlFilter": {
+                      "sqlExpression": "eventType='email'",
+                      "requiresPreprocessing": "false"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "Microsoft.ServiceBus/namespaces/AuthorizationRules",
+          "apiVersion": "2017-04-01",
+          "name": "[concat(variables('service_bus_namespace'), '/ApiConnectionAccessKey')]",
+          "location": "West US",
+          "dependsOn": [
+            "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]"
+          ],
+          "properties": {
+            "rights": [
+              "Send"
+            ]
+          }
+        },
+        {
+          "type": "Microsoft.ServiceBus/namespaces/AuthorizationRules",
+          "apiVersion": "2017-04-01",
+          "name": "[concat(variables('service_bus_namespace'), '/ListenOnlySampleApiAccessKey')]",
+          "location": "West US",
+          "dependsOn": [
+            "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]"
+          ],
+          "properties": {
+            "rights": [
+              "Listen"
+            ]
+          }
+        },
+        {
+          "type": "Microsoft.ServiceBus/namespaces/AuthorizationRules",
+          "apiVersion": "2017-04-01",
+          "name": "[concat(variables('service_bus_namespace'), '/SampleApiAccessKey')]",
+          "location": "West US",
+          "dependsOn": [
+            "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]"
+          ],
+          "properties": {
+            "rights": [
+              "Listen",
+              "Send"
+            ]
+          }
+        },
+        {
+          "type": "Microsoft.ServiceBus/namespaces/AuthorizationRules",
+          "apiVersion": "2017-04-01",
+          "name": "[concat(variables('service_bus_namespace'), '/Sample1MMRInternalFunctions')]",
+          "location": "West US",
+          "dependsOn": [
+            "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]"
+          ],
+          "properties": {
+            "rights": [
+              "Manage",
+              "Listen",
+              "Send"
+            ]
+          }
+        },
+        {
+          "type": "Microsoft.ServiceBus/namespaces/AuthorizationRules",
+          "apiVersion": "2017-04-01",
+          "name": "[concat(variables('service_bus_namespace'), '/RootManageSharedAccessKey')]",
+          "location": "West US",
+          "dependsOn": [
+            "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]"
+          ],
+          "properties": {
+            "rights": [
+              "Listen",
+              "Manage",
+              "Send"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "apiVersion": "2018-04-01",
+      "type": "Microsoft.Devices/IotHubs",
+      "name": "[variables('IoTHubName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
+        "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]",
+        "[resourceId('Microsoft.ServiceBus/namespaces/queues', variables('service_bus_namespace'), variables('service_bus_queuePendingevents'))]",
+        "[resourceId('Microsoft.ServiceBus/namespaces/queues', variables('service_bus_namespace'), variables('service_bus_queueResponse'))]"
+        //"[resourceId('Microsoft.ServiceBus/namespaces/topics/authorizationRules', variables('service_bus_namespace'), 'events' 'iothubroutes_Sample')]"
+      ],
+      "properties": {
+        "eventHubEndpoints": {
+          "events": {
+            "retentionTimeInDays": 1,
+            "partitionCount": "[parameters('partitions')]"
+          },
+          "operationsMonitoringEvents": {
+            "partitionCount": 4,
+            "retentionTimeInDays": 2
+          }
+        },
+        "routing": {
+          "endpoints": {
+            "serviceBusQueues": [
+            ],
+            "serviceBusTopics": [
+              {
+                "connectionString": "[Concat('Endpoint=sb://',variables('service_bus_namespace'),'.servicebus.windows.net/;SharedAccessKeyName=iothubroutes_Sample',';SharedAccessKey=',listkeys(variables('queueAuthorizationRuleResourceId3'),variables('sbVersion')).primaryKey,';EntityPath=events')]",
+                "name": "servicebustopicEvents",
+                "subscriptionId": "[parameters('subscriptionId')]",
+                "resourceGroup": "[resourceGroup().Name]"
+              }
+            ],
+            "eventHubs": [],
+            "storageContainers": [
+            ]
+          },
+          "routes": [
+            {
+              "name": "TwinChangeEvents",
+              "source": "TwinChangeEvents",
+              "condition": "true",
+              "endpointNames": [
+                "serviceBusTopicEvents"
+              ],
+              "isEnabled": true
+            },
+            {
+              "name": "LifeCycleEvents",
+              "source": "DeviceLifecycleEvents",
+              "condition": "true",
+              "endpointNames": [
+                "serviceBusTopicEvents"
+              ],
+              "isEnabled": true
+            },
+            {
+              "name": "servicebustopicEvents",
+              "source": "DeviceMessages",
+              "condition": "is_defined(eventType) AND eventType != 'AgentErrMsg' AND eventType != 'telemetryevent'",
+              "endpointNames": [
+                "serviceBusTopicEvents"
+              ],
+              "isEnabled": true
+            }
+
+          ],
+          "fallbackRoute": {
+            "name": "$fallback",
+            "source": "DeviceMessages",
+            "condition": "true",
+            "endpointNames": [
+              "events"
+            ],
+            "isEnabled": true
+          }
+        },
+        "storageEndpoints": {
+          "$default": {
+            "sasTtlAsIso8601": "PT1H",
+            "connectionString": "",
+            "containerName": ""
+          }
+        },
+        "messagingEndpoints": {
+          "fileNotifications": {
+            "lockDurationAsIso8601": "PT1M",
+            "ttlAsIso8601": "PT1H",
+            "maxDeliveryCount": 10
+          }
+        },
+        "enableFileUploadNotifications": false,
+        "cloudToDevice": {
+          "maxDeliveryCount": 10,
+          "defaultTtlAsIso8601": "PT1H",
+          "feedback": {
+            "lockDurationAsIso8601": "PT1M",
+            "ttlAsIso8601": "PT1H",
+            "maxDeliveryCount": 10
+          }
+        }
+      },
+      "sku": {
+        "name": "[parameters('sku_name')]",
+        "capacity": "[parameters('sku_units')]"
+      }
+    },
+    {
+      "type": "Microsoft.ServiceBus/namespaces/queues/authorizationRules",
+      "name": "[concat(variables('service_bus_namespace'), '/', variables('service_bus_queuePendingevents'), '/', parameters('AuthRules_sb_queuePE'))]",
+      "apiVersion": "[variables('sbVersion')]",
+      "location": "[parameters('location')]",
+      "scale": null,
+      "properties": {
+        "rights": [
+          "Send"
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]",
+        "[resourceId('Microsoft.ServiceBus/namespaces/queues', variables('service_bus_namespace'), variables('service_bus_queuePendingevents'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.ServiceBus/namespaces/queues/authorizationRules",
+      "name": "[concat(variables('service_bus_namespace'), '/', variables('service_bus_queueResponse'), '/', parameters('AuthRules_sb_queueRE'))]",
+      "apiVersion": "[variables('sbVersion')]",
+      "location": "[parameters('location')]",
+      "scale": null,
+      "properties": {
+        "rights": [
+          "Send"
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]",
+        "[resourceId('Microsoft.ServiceBus/namespaces/queues', variables('service_bus_namespace'), variables('service_bus_queueResponse'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Devices/IotHubs/eventHubEndpoints/ConsumerGroups",
+      "name": "[concat(variables('iotHubName'), '/events/',parameters('consumer_group'))]",
+      "apiVersion": "2018-04-01",
+      "dependsOn": [
+        "[concat('Microsoft.Devices/Iothubs/', variables('iotHubName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts",
+      "name": "[variables('cosmosDbAccount')]",
+      "apiVersion": "2016-03-31",
+      "location": "[resourceGroup().location]",
+      "kind": "GlobalDocumentDB",
+      "properties": {
+        "databaseAccountOfferType": "Standard",
+        "consistencyPolicy": {
+          "defaultConsistencyLevel": "Session",
+          "maxIntervalInSeconds": 5,
+          "maxStalenessPrefix": 100
+        },
+        "name": "[variables('cosmosDbAccount')]"
+      }
+    },
+    //Create CosmosDB Database
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/apis/databases",
+      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'))]",
+      "apiVersion": "2016-03-31",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/', variables('cosmosDbAccount'))]"
+      ],
+      "properties": {
+        "resource": {
+          "id": "[variables('SampleDatabaseName1')]"
+        },
+        "options": {
+          "throughput": "700"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/apis/databases",
+      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampledatabaseName2'))]",
+      "apiVersion": "2016-03-31",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/', variables('cosmosDbAccount'))]"
+      ],
+      "properties": {
+        "resource": {
+          "id": "[variables('SampledatabaseName2')]"
+        },
+        "options": {
+          "throughput": "700"
+        }
+      }
+    },
+    //CosmosDB Containers for Database 2
+    {
+      "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampledatabaseName2'), '/', variables('customersContainerName'))]",
+      "apiVersion": "2016-03-31",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampledatabaseName2'))]"
+      ],
+      "properties": {
+        "resource": {
+          "id": "[variables('customersContainerName')]",
+          "partitionKey": {
+            "paths": [
+              "/_partitionKey"
+            ],
+            "kind": "Hash"
+          },
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "includedPaths": [
+              {
+                "path": "/*",
+                "indexes": [
+                  {
+                    "kind": "Range",
+                    "dataType": "number",
+                    "precision": -1
+                  },
+                  {
+                    "kind": "Hash",
+                    "dataType": "string",
+                    "precision": -1
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    //CosmosDB Containers Database 1
+    {
+      "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('customersContainerName'))]",
+      "apiVersion": "2016-03-31",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]"
+      ],
+      "properties": {
+        "resource": {
+          "id": "[variables('customersContainerName')]",
+          "partitionKey": {
+            "paths": [
+              "/customerId"
+            ],
+            "kind": "Hash"
+          },
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "includedPaths": [
+              {
+                "path": "/*",
+                "indexes": [
+                  {
+                    "kind": "Range",
+                    "dataType": "number",
+                    "precision": -1
+                  },
+                  {
+                    "kind": "Hash",
+                    "dataType": "string",
+                    "precision": -1
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('CustomerDataContainerName'))]",
+      "apiVersion": "2016-03-31",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('customersContainerName'))]"
+      ],
+      "properties": {
+        "resource": {
+          "id": "[variables('CustomerDataContainerName')]",
+          "partitionKey": {
+            "paths": [
+              "/partition"
+            ],
+            "kind": "Hash"
+          },
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "includedPaths": [
+              {
+                "path": "/*",
+                "indexes": [
+                  {
+                    "kind": "Range",
+                    "dataType": "number",
+                    "precision": -1
+                  },
+                  {
+                    "kind": "Hash",
+                    "dataType": "string",
+                    "precision": -1
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('eventsContainerName'))]",
+      "apiVersion": "2016-03-31",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('CustomerDataContainerName'))]"
+      ],
+      "properties": {
+        "resource": {
+          "id": "[variables('eventsContainerName')]",
+          "partitionKey": {
+            "paths": [
+              "/deviceId"
+            ],
+            "kind": "Hash"
+          },
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "includedPaths": [
+              {
+                "path": "/*",
+                "indexes": [
+                  {
+                    "kind": "Range",
+                    "dataType": "number",
+                    "precision": -1
+                  },
+                  {
+                    "kind": "Hash",
+                    "dataType": "string",
+                    "precision": -1
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('incidentsContainerName'))]",
+      "apiVersion": "2016-03-31",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('eventsContainerName'))]"
+      ],
+      "properties": {
+        "resource": {
+          "id": "[variables('incidentsContainerName')]",
+          "partitionKey": {
+            "paths": [
+              "/customerId"
+            ],
+            "kind": "Hash"
+          },
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "includedPaths": [
+              {
+                "path": "/*",
+                "indexes": [
+                  {
+                    "kind": "Range",
+                    "dataType": "number",
+                    "precision": -1
+                  },
+                  {
+                    "kind": "Hash",
+                    "dataType": "string",
+                    "precision": -1
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    //Sample1ContainerName
+    {
+      "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('Sample1ContainerName'))]",
+      "apiVersion": "2016-03-31",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('incidentsContainerName'))]"
+
+      ],
+      "properties": {
+        "resource": {
+          "id": "[variables('Sample1ContainerName')]",
+          "partitionKey": {
+            "paths": [
+              "/partitionKey"
+            ],
+            "kind": "Hash"
+          },
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "includedPaths": [
+              {
+                "path": "/*",
+                "indexes": [
+                  {
+                    "kind": "Range",
+                    "dataType": "number",
+                    "precision": -1
+                  },
+                  {
+                    "kind": "Hash",
+                    "dataType": "string",
+                    "precision": -1
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('leasesContainerName'))]",
+      "apiVersion": "2016-03-31",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('Sample1ContainerName'))]"
+
+      ],
+      "properties": {
+        "resource": {
+          "id": "[variables('leasesContainerName')]",
+          "partitionKey": {
+            "paths": [
+              "/_partitionKey"
+            ],
+            "kind": "Hash"
+          },
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "includedPaths": [
+              {
+                "path": "/*",
+                "indexes": [
+                  {
+                    "kind": "Range",
+                    "dataType": "number",
+                    "precision": -1
+                  },
+                  {
+                    "kind": "Hash",
+                    "dataType": "string",
+                    "precision": -1
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+
+    //Azure Functions
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[variables('storageAccountNameazfunc')]",
+      "apiVersion": "2016-12-01",
+      "location": "[parameters('location')]",
+      "kind": "Storage",
+      "sku": {
+        "name": "[parameters('storageAccountType')]"
+      }
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2018-02-01",
+      "name": "[variables('hostingPlanName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Y1",
+        "tier": "Dynamic"
+      },
+      "properties": {
+        "name": "[variables('hostingPlanName')]",
+        "computeMode": "Dynamic"
+      }
+    },
+    {
+      "apiVersion": "2015-08-01",
+      "type": "Microsoft.Web/sites",
+      "name": "[Concat(variables('functionAppName'))]",
+      "location": "[parameters('location')]",
+      "kind": "functionapp",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountNameazfunc'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('leasesContainerName'))]"
+      ],
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+        "siteConfig": {
+          "appSettings": [
+            {
+              "name": "WEBSITE_CONTENTSHARE",
+              "value": "[toLower(variables('functionAppName'))]"
+            },
+            {
+              "name": "FUNCTIONS_EXTENSION_VERSION",
+              "value": "~2"
+            },
+            {
+              "name": "WEBSITE_NODE_DEFAULT_VERSION",
+              "value": "8.11.1"
+            },
+            {
+              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+              "value": "[reference(resourceId('microsoft.insights/components/', variables('applicationInsightsName')), '2015-05-01').InstrumentationKey]"
+            },
+            {
+              "name": "FUNCTIONS_WORKER_RUNTIME",
+              "value": "[variables('functionWorkerRuntime')]"
+            },
+            {
+              "name": "WEBSITE_RUN_FROM_ZIP",
+              "value": "[variables('functionBlobUrl')]"
+            },
+            {
+              "name": "WEBSITE_RUN_FROM_PACKAGE",
+              "value": "[variables('functionBlobUrl')]"
+            },
+            {
+              "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+              "value": true
+            },
+
+            {
+              "name": "AZURE_DEVOPS_URL",
+              "value": "https://skypeforbusinesspartnerengineering.visualstudio.com/",
+              "slotSetting": false
+            },
+            {
+              "name": "BLOB_SERVER_CONNECTION_STRING",
+              "value": "[Concat('DefaultEndpointsProtocol=https;AccountName=',variables('storageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value)]",
+              "slotSetting": false
+            },
+            {
+              "name": "DOCUMENTDB_HOST",
+              "value": "[concat('https://', variables('cosmosDbAccount'), '.documents.azure.com:443/')]",
+              "slotSetting": false
+            },
+            {
+              "name": "DOCUMENTDB_MASTER_KEY",
+              "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';')]",
+              "slotSetting": false
+            },
+            {
+              "name": "Application1_BLOB_CONNECTION_STRING",
+              "value": "[Concat('DefaultEndpointsProtocol=https;AccountName=',variables('storageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value)]",
+              "slotSetting": false
+            },
+            {
+              "name": "Application1_DOCUMENTDB_HOST",
+              "value": "[concat('https://', variables('cosmosDbAccount'), '.documents.azure.com:443/')]",
+              "slotSetting": false
+            },
+            {
+              "name": "Application1_DOCUMENTDB_MASTERKEY",
+              "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';')]",
+              "slotSetting": false
+            },
+            {
+              "name": "IOTHUB_CONNECTION_STRING",
+              "value": "[concat('HostName=', reference(resourceId('Microsoft.Devices/IoTHubs', variables('iotHubName')), providers('Microsoft.Devices', 'IoTHubs').apiVersions[0]).hostName, ';SharedAccessKeyName=iothubowner;SharedAccessKey=', listKeys(resourceId('Microsoft.Devices/IotHubs', variables('iotHubName')), providers('Microsoft.Devices', 'IoTHubs').apiVersions[0]).value[0].primaryKey)]",
+              "slotSetting": false
+            },
+            {
+              "name": "DOCUMENTDB_CONNECTION_STRING",
+              "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';')]",
+              "slotSetting": false
+            },
+            {
+              "name": "EVENTS_TOPIC",
+              "value": "events",
+              "slotSetting": false
+            },
+            {
+              "name": "OPERATOR_EMAIL",
+              "value": "SampleSupport@gmail.com",
+              "slotSetting": false
+            },
+            {
+              "name": "PENDING_QUEUE",
+              "value": "pendingevents",
+              "slotSetting": false
+            },
+            {
+              "name": "SERVICEBUS_CONNECTION_STRING",
+              "value": "[Concat('Endpoint=sb://',variables('service_bus_namespace'),'.servicebus.windows.net/;SharedAccessKeyName=',parameters('AuthRules_sb_queuePE'),';SharedAccessKey=',listkeys(variables('queueAuthorizationRuleResourceId1'),variables('sbVersion')).primaryKey,';EntityPath=',variables('service_bus_queuePendingevents'))]",
+              "slotSetting": false
+            },
+            {
+              "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+              "value": "[Concat('DefaultEndpointsProtocol=https;AccountName=',variables('storageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value)]",
+              "slotSetting": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "apiVersion": "2018-05-01-preview",
+      "name": "[variables('applicationInsightsName')]",
+      "type": "microsoft.insights/components",
+      "location": "East US",
+      "tags": {
+        "[concat('hidden-link:', uniqueString(resourceGroup().id), '/providers/Microsoft.Web/sites/', variables('applicationInsightsName'))]": "Resource"
+      },
+      "properties": {
+        "ApplicationId": "[variables('applicationInsightsName')]",
+        "Request_Source": "SamplesWebAppExtensionCreate"
+      }
+    },
+    //Copy CosmosDB Data
+    {
+      "name": "[variables('dataFactoryName')]",
+      "apiVersion": "2018-06-01",
+      "type": "Microsoft.DataFactory/factories",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountNameazfunc'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('leasesContainerName'))]"
+      ],
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {},
+      "resources": [
+        //CosmosInputLinkedServ
+        {
+          "name": "[concat(variables('dataFactoryName'), '/CosmosInputLinkedServ')]",
+          "apiVersion": "2018-06-01",
+          "type": "Microsoft.DataFactory/factories/linkedServices",
+          "properties": {
+            "type": "CosmosDb",
+            "annotations": [
+            ],
+            "typeProperties": {
+              "connectionString": {
+                "type": "SecureString",
+                "value": "AccountEndpoint=https://Sampledb.documents.azure.com:443/;AccountKey=XXXXXXXXXX;Database=Sample-storage;"
+              }
+            }
+          },
+          "dependsOn": [
+            "[variables('dataFactoryName')]"
+          ]
+        },
+        //CosmosOutputLinkedServ
+        {
+          "name": "[concat(variables('dataFactoryName'), '/CosmosOutputLinkedServ')]",
+          "type": "Microsoft.DataFactory/factories/linkedServices",
+          "apiVersion": "2018-06-01",
+          "properties": {
+            "type": "CosmosDb",
+            "annotations": [
+            ],
+            "typeProperties": {
+              "connectionString": {
+                "type": "SecureString",
+                "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';Database=Sample-storage;')]"
+              }
+            }
+          },
+          "dependsOn": [
+            "[variables('dataFactoryName')]"
+          ]
+        },
+        //CosmosInputPCSLinkedServ
+        {
+          "name": "[concat(variables('dataFactoryName'), '/CosmosInputPCSLinkedServ')]",
+          "apiVersion": "2018-06-01",
+          "type": "Microsoft.DataFactory/factories/linkedServices",
+          "properties": {
+            "type": "CosmosDb",
+            "annotations": [
+            ],
+            "typeProperties": {
+              "connectionString": {
+                "type": "SecureString",
+                "value": "AccountEndpoint=https://Sampleautomation.documents.azure.com:443/;AccountKey=XXXXX;Database=Sample-storage;"
+              }
+            }
+          },
+          "dependsOn": [
+            "[variables('dataFactoryName')]"
+          ]
+        },
+        //CosmosOutputPCSLinkedServ
+        {
+          "name": "[concat(variables('dataFactoryName'), '/CosmosOutputPCSLinkedServ')]",
+          "type": "Microsoft.DataFactory/factories/linkedServices",
+          "apiVersion": "2018-06-01",
+          "properties": {
+            "type": "CosmosDb",
+            "annotations": [
+            ],
+            "typeProperties": {
+              "connectionString": {
+                "type": "SecureString",
+                "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';Database=sample-storage;')]"
+              }
+            }
+          },
+          "dependsOn": [
+            "[variables('dataFactoryName')]"
+          ]
+        },
+        //InputDSIncidentType
+        {
+          "type": "Microsoft.DataFactory/factories/datasets",
+          "apiVersion": "2018-06-01",
+          "dependsOn": [
+            "[variables('dataFactoryName')]",
+            "[concat(variables('factoryId'), '/linkedServices/CosmosInputLinkedServ')]"
+          ],
+          "name": "[concat(variables('dataFactoryName'), '/InputDSIncidentType')]",
+          "properties": {
+            "annotations": [
+
+            ],
+            "external": true,
+            "linkedServiceName": {
+              "referenceName": "CosmosInputLinkedServ",
+              "type": "LinkedServiceReference"
+            },
+            "type": "DocumentDbCollection",
+            "typeProperties": {
+              "collectionName": "incidentType"
+            }
+          }
+        },
+        //OutputDSIncidentType
+        {
+          "name": "[concat(variables('dataFactoryName'), '/OutputDSIncidentType')]",
+          "type": "Microsoft.DataFactory/factories/datasets",
+          "apiVersion": "2018-06-01",
+          "properties": {
+            "annotations": [
+
+            ],
+            "external": true,
+            "linkedServiceName": {
+              "referenceName": "CosmosOutputLinkedServ",
+              "type": "LinkedServiceReference"
+            },
+            "type": "DocumentDbCollection",
+            "typeProperties": {
+              "collectionName": "incidentType"
+            }
+          },
+          "dependsOn": [
+            "[variables('dataFactoryName')]",
+            "[concat(variables('factoryId'), '/linkedServices/CosmosOutputLinkedServ')]"
+          ]
+        },
+        //InputDSCustomer
+        {
+          "name": "[concat(variables('dataFactoryName'), '/InputDSCustomer')]",
+          "type": "Microsoft.DataFactory/factories/datasets",
+          "apiVersion": "2018-06-01",
+          "properties": {
+            "annotations": [],
+            "external": true,
+            "linkedServiceName": {
+              "referenceName": "CosmosInputLinkedServ",
+              "type": "LinkedServiceReference"
+            },
+            "type": "DocumentDbCollection",
+            "typeProperties": {
+              "collectionName": "[variables('customersContainerName')]"
+            }
+          },
+          "dependsOn": [
+            "[variables('dataFactoryName')]",
+            "[concat(variables('factoryId'), '/linkedServices/CosmosInputLinkedServ')]"
+          ]
+        },
+        //OutputDSCustomer
+        {
+          "name": "[concat(variables('dataFactoryName'), '/OutputDSCustomer')]",
+          "type": "Microsoft.DataFactory/factories/datasets",
+          "apiVersion": "2018-06-01",
+          "properties": {
+            "annotations": [
+
+            ],
+            "external": true,
+            "linkedServiceName": {
+              "referenceName": "CosmosOutputLinkedServ",
+              "type": "LinkedServiceReference"
+            },
+            "type": "DocumentDbCollection",
+            "typeProperties": {
+              "collectionName": "[variables('customersContainerName')]"
+            }
+          },
+          "dependsOn": [
+            "[variables('dataFactoryName')]",
+            "[concat(variables('factoryId'), '/linkedServices/CosmosOutputLinkedServ')]"
+          ]
+        },
+        //InputDSPCSCustomer
+        {
+          "name": "[concat(variables('dataFactoryName'), '/InputDSPCSCustomer')]",
+          "type": "Microsoft.DataFactory/factories/datasets",
+          "apiVersion": "2018-06-01",
+          "properties": {
+            "annotations": [
+
+            ],
+            "external": true,
+            "linkedServiceName": {
+              "referenceName": "CosmosInputPCSLinkedServ",
+              "type": "LinkedServiceReference"
+            },
+            "type": "DocumentDbCollection",
+            "typeProperties": {
+              "collectionName": "[variables('customersContainerName')]"
+            }
+          },
+          "dependsOn": [
+            "[variables('dataFactoryName')]",
+            "[concat(variables('factoryId'), '/linkedServices/CosmosInputPCSLinkedServ')]"
+          ]
+        },
+        //OutputDSSampleCustomer
+        {
+          "name": "[concat(variables('dataFactoryName'), '/OutputDSSampleCustomer')]",
+          "type": "Microsoft.DataFactory/factories/datasets",
+          "apiVersion": "2018-06-01",
+          "properties": {
+            "annotations": [
+
+            ],
+            "external": true,
+            "linkedServiceName": {
+              "referenceName": "CosmosOutputPCSLinkedServ",
+              "type": "LinkedServiceReference"
+            },
+            "type": "DocumentDbCollection",
+            "typeProperties": {
+              "collectionName": "[variables('customersContainerName')]"
+            }
+          },
+          "dependsOn": [
+            "[variables('dataFactoryName')]",
+            "[concat(variables('factoryId'), '/linkedServices/CosmosOutputPCSLinkedServ')]"
+          ]
+        },
+        //Copy Activity
+        {
+          "name": "[concat(variables('dataFactoryName'), '/ArmtemplateSampleCopyPipeline')]",
+          "type": "Microsoft.DataFactory/factories/pipelines",
+          "apiVersion": "2018-06-01",
+          "properties": {
+            "description": "Copy IncidentType Collection",
+            "activities": [
+              {
+                "inputs": [
+                  {
+                    "referenceName": "InputDSPCSCustomer",
+                    "type": "DatasetReference"
+                  }
+                ],
+                "name": "CopyPCSStorageCustomer",
+                "outputs": [
+                  {
+                    "referenceName": "OutputDSSampleCustomer",
+                    "type": "DatasetReference"
+                  }
+                ],
+                "type": "Copy",
+                "typeProperties": {
+                  "source": {
+                    "type": "DocumentDbCollectionSource"
+                  },
+                  "sink": {
+                    "type": "DocumentDbCollectionSink"
+                  }
+                }
+              }
+            ]
+          },
+          "dependsOn": [
+            "[variables('dataFactoryName')]",
+            "[concat(variables('factoryId'), '/datasets/InputDSPCSCustomer')]",
+            "[concat(variables('factoryId'), '/datasets/OutputDSSampleCustomer')]"
+          ]
+        }
+        //CosmosDB Copy Data done.
+      ]
+    }
+  ],
+  "outputs": {
+    "CosmosDBConnectionString1": {
+      "type": "string",
+      "value": "AccountEndpoint=https://Sampleautomation.documents.azure.com:443/;AccountKey=XXXXXXXXXXXXXXX;Database=Sample-storage;"
+    },
+    "CosmosDBConnectionString2": {
+      "type": "string",
+      "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';Database=sample-storage;')]"
+    },
+    "sbq_connectionStringPE": {
+      "type": "string",
+      "value": "[Concat('Endpoint=sb://',variables('service_bus_namespace'),'.servicebus.windows.net/;SharedAccessKeyName=',parameters('AuthRules_sb_queuePE'),';SharedAccessKey=',listkeys(variables('queueAuthorizationRuleResourceId1'),variables('sbVersion')).primaryKey,';EntityPath=',variables('service_bus_queuePendingevents'))]"
+    },
+    "sbq_connectionStringRE": {
+      "type": "string",
+      "value": "[Concat('Endpoint=sb://',variables('service_bus_namespace'),'.servicebus.windows.net/;SharedAccessKeyName=iothubroutes_Sample',';SharedAccessKey=',listkeys(variables('queueAuthorizationRuleResourceId2'),variables('sbVersion')).primaryKey,';EntityPath=',variables('service_bus_queueResponse'))]"
+    },
+    "keys": {
+      "type": "object",
+      "value": "[listKeys(variables('storageAccountName'), '2018-02-01')]"
+    },
+    "iotHubKeys": {
+      "value": "[listKeys(resourceId('Microsoft.Devices/IotHubs/', variables('iotHubName')), '2018-04-01')]",
+      "type": "object"
+    },
+    "IoTHubName": {
+      "type": "string",
+      "value": "[variables('ioTHubName')]"
+    },
+    "cosmosDbAccount": {
+      "type": "string",
+      "value": "[concat('Sample1Cosmosdb', uniqueString(resourceGroup().id))]"
+    },
+    "cosmosDbAccountPrimaryKey": {
+      "type": "string",
+      "value": "[listkeys(variables('cosmosDbAccount'), variables('cosmosDBsbVersion')).primaryMasterKey]"
+    }
+  }
+}
