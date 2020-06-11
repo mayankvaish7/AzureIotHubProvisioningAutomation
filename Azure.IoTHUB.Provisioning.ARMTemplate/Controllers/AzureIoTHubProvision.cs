@@ -1,20 +1,4 @@
-﻿/*=============================================================================
- |   Assignment:  Azure IoTHub ARM Template Provisioning Automation
- |       Author:  Mayank Vaish - mayankvaish1@gmail.com
- |
- |  Description:  This Controller will Create Azure IoTHub Through Azure ARMTemplate in Asset Folder
-                    and then create Soft dummy IoT Devices and Send Messages to IoTHub and check the actions
-                    Get applied as per IoT Device message
- |
- |     Language:  C#
- | Ex. Packages:  Microsoft.Azure.Devices
-                    Microsoft.Azure.Management.ResourceManager
-                    Newtonsoft.Json.Linq
-                    Microsoft.IdentityModel.Clients
- |                
- | Deficiencies:  
- *===========================================================================*/
-using Azure.IoTHUB.Provisioning.ARMTemplate;
+﻿using Azure.IoTHUB.Provisioning.ARMTemplate;
 using Microsoft.Azure.Devices.Client;
 using Microsoft.Azure.Management.ResourceManager.Fluent;
 using Microsoft.Azure.Management.ResourceManager.Fluent.Authentication;
@@ -25,18 +9,19 @@ using System;
 using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web;
 using System.Web.Configuration;
 using System.Web.Http;
 
 namespace Azure.IoTHub.ARMTemplateProvisioning.Controllers
 {
-    public class AzureIoTHubProvision : ApiController
+    public class AzureIoTHubProvisionController : ApiController
     {
         // GET api/AzureIoTHubProvision/{IoTHubCode}
         [HttpGet, Route("api/AzureIoTHubProvision")]
         public async Task<IHttpActionResult> Get(string IoTHubAutomationCode, string ResourceGroupName)
         {
-            //http://localhost:3642/api/AzureIoTHubProvision
+            //http://localhost:3642/api/AzureIoTHubProvision?IoTHubAutomationCode=XXXXXXXX&ResourceGroupName=XXXXXXXX
 
             //=================================================================
             //Azure CLI --  > az account set --subscription XXXXXX-Name Or ID
@@ -112,18 +97,20 @@ namespace Azure.IoTHub.ARMTemplateProvisioning.Controllers
                 //Create Device
                 DeviceClient deviceClient;
                 Random rnd = new Random();
-                for (int j = 0; j <= 100; j++)
+                for (int j = 0; j <= 10; j++)
                 {
-                    deviceClient = await ioTDeviceModule.AddDeviceAsync("DeviceID1" + rnd.Next().ToString(), ioTConnectionString);
-                    var docresponse = "Test Messagefrom DeviceId";
-                    //Send upto 100  Messages to IoTHub
-                    for (int i = 0; i <= 100; i++)
+                    deviceClient = await ioTDeviceModule.AddDeviceAsync("DeviceID" + j.ToString(), ioTConnectionString);
+                    var docresponse = "Test Messagefrom DeviceId" + j.ToString();
+
+                    //Send upto 2  Messages to IoTHub
+                    for (int i = 0; i <= 2; i++)
                     {
                         //Send AMQP Message from Device to IoTHub
                         if (deviceClient != null)
                         {
                             var message = new Message(Encoding.ASCII.GetBytes(docresponse));
                             message.Properties.Add("DeviceMessage", "TelemetryData");
+                            message.Properties.Add("NewMessage", "MessageData1");
                             await deviceClient.SendEventAsync(message);
                         }
                     }

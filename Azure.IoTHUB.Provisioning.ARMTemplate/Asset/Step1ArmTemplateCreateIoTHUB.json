@@ -1,16 +1,4 @@
-﻿/*=============================================================================
- |   Assignment:  Azure IoTHub ARMTemplate Provisioning and Deployment.
- |       Author:  Mayank Vaish - mayankvaish1@gmail.com
- |
- |  Description:  This Azure ARM Template can Create Azure IoTHub Dynamically along with all Storage Account Service,
-                  Service Bus Topics, Service Bus Topics Subscriptions and Rules etc.
- |
- |     Language:  JSon
- |                  
- | Deficiencies:  
- *===========================================================================*/
-
-{
+﻿{
   "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json",
   "contentVersion": "1.0.0.0",
   //This will create IoTHub, Storage account, ServiceBUs, Queues, Topics, Authorizationrules deployment etc.
@@ -161,7 +149,7 @@
     },
     "repoURL": {
       "type": "string",
-      "defaultValue": "",
+      "defaultValue": "https://github.com/AzureBytes/functionshttpecho.git",
       "metadata": {
         "description": "The URL for the GitHub repository that contains the project to deploy."
       }
@@ -179,6 +167,14 @@
       "metadata": {
         "description": "Sample Functions Package Blob URL ."
       }
+    },
+    "UniqueString": {
+      "type": "string",
+      "defaultValue": "XXXXXX",
+      //"iotHubName": "[concat(parameters('IotHubName_in'),uniqueString(resourceGroup().id))]",
+      "metadata": {
+        "description": "Sample Functions Package Blob URL ."
+      }
     }
   },
   "variables": {
@@ -186,12 +182,12 @@
     "queueAuthorizationRuleResourceId1": "[resourceId('Microsoft.ServiceBus/namespaces/queues/authorizationRules', variables('service_bus_namespace'), variables('service_bus_queuePendingevents'), parameters('AuthRules_sb_queuePE'))]",
     "queueAuthorizationRuleResourceId2": "[resourceId('Microsoft.ServiceBus/namespaces/queues/authorizationRules', variables('service_bus_namespace'), variables('service_bus_queueResponse'), parameters('AuthRules_sb_queueRE'))]",
     "queueAuthorizationRuleResourceId3": "[resourceId('Microsoft.ServiceBus/namespaces/topics/authorizationRules', variables('service_bus_namespace'), 'events', 'iothubroutes_Sample')]",
-
-    "iotHubName": "[concat(parameters('IotHubName_in'),uniqueString(resourceGroup().id))]",
-    "storageAccountName": "[concat(parameters('storageAccountName_in'),uniqueString(resourceGroup().id))]",
-    "service_bus_namespace": "[concat(parameters('service_bus_namespace_in'),uniqueString(resourceGroup().id))]",
+    
+    "iotHubName": "[concat(parameters('IotHubName_in'), parameters('UniqueString'))]",
+    "storageAccountName": "[concat(parameters('storageAccountName_in'),parameters('UniqueString'))]",
+    "service_bus_namespace": "[concat(parameters('service_bus_namespace_in'),parameters('UniqueString'))]",
     "service_bus_queuePendingevents": "pendingevents",
-    "dataFactoryName": "[concat('DFactSample', uniqueString(resourceGroup().id))]",
+    "dataFactoryName": "[concat('DFactSample', parameters('UniqueString'))]",
     "factoryId": "[concat('Microsoft.DataFactory/factories/', variables('dataFactoryName'))]",
     "service_bus_queueResponse": "response",
     "sbVersion": "2017-04-01",
@@ -200,7 +196,7 @@
     "serviceBusTopicAlerts": "alerts",
     "TopicSubscriptionCheckDisconnected": "checkDisconnected",
     //CosmosDB Variables
-    "cosmosDbAccount": "[concat('Sample1Cosmosdb', uniqueString(resourceGroup().id))]",
+    "cosmosDbAccount": "[concat('Sample1Cosmosdb', parameters('UniqueString'))]",
     "SampleDatabaseName1": "CosmosDBDatabase1",
     "SampledatabaseName2": "CosmosDBDatabase2",
     "CustomerDataContainerName": "CustomerData",
@@ -214,10 +210,10 @@
     "resourceId": "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount'))]",
     "apiVersion": "[providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]]",
     //Azure Functions Variables
-    "functionAppName": "[concat(parameters('appName'), uniqueString(resourceGroup().id))]",
+    "functionAppName": "[concat(parameters('appName'), parameters('UniqueString'))]",
     "hostingPlanName": "[parameters('appName')]",
     "applicationInsightsName": "[parameters('appName')]",
-    "storageAccountNameazfunc": "[concat('azfunc', uniqueString(resourceGroup().id))]",
+    "storageAccountNameazfunc": "[concat('azfunc', parameters('UniqueString'))]",
     "storageAccountid": "[concat(resourceGroup().id,'/providers/','Microsoft.Storage/storageAccounts/', variables('storageAccountName'))]",
     "functionWorkerRuntime": "[parameters('runtime')]",
     "functionBlobUrl": "[parameters('Samplefunctionpackagebloburl')]"
@@ -364,9 +360,9 @@
               "resources": [
                 {
                   "apiVersion": "2017-04-01",
-                  "name": "[concat(variables('service_bus_namespace'), '/events/AnotherSBTopicSubscriptions/AnotherSBTopicSubscriptions1')]",
+                  "name": "[concat(variables('service_bus_namespace'), '/events/AnotherSBTopicSubscriptions1/AnotherSBTopicSubscriptions')]",
                   "type": "Microsoft.ServiceBus/namespaces/topics/subscriptions/Rules",
-                  "dependsOn": [ "[resourceId('Microsoft.ServiceBus/namespaces/topics/subscriptions', variables('service_bus_namespace'), 'events', 'AnotherSBTopicSubscriptions')]" ],
+                  "dependsOn": [ "[resourceId('Microsoft.ServiceBus/namespaces/topics/subscriptions', variables('service_bus_namespace'), 'events', 'AnotherSBTopicSubscriptions1')]" ],
                   "properties": {
                     "filterType": "SqlFilter",
                     "sqlFilter": {
@@ -570,7 +566,7 @@
         {
           "type": "Microsoft.ServiceBus/namespaces/AuthorizationRules",
           "apiVersion": "2017-04-01",
-          "name": "[concat(variables('service_bus_namespace'), '/Sample1MMRInternalFunctions')]",
+          "name": "[concat(variables('service_bus_namespace'), '/Sample1InternalFunctions')]",
           "location": "West US",
           "dependsOn": [
             "[resourceId('Microsoft.ServiceBus/namespaces', variables('service_bus_namespace'))]"
@@ -617,7 +613,7 @@
         "eventHubEndpoints": {
           "events": {
             "retentionTimeInDays": 1,
-            "partitionCount": "[parameters('partitions')]"
+            "partitionCount": "[parameters('d2c_partitions')]"
           },
           "operationsMonitoringEvents": {
             "partitionCount": 4,
@@ -627,6 +623,18 @@
         "routing": {
           "endpoints": {
             "serviceBusQueues": [
+              {
+                "connectionString": "[Concat('Endpoint=sb://',variables('service_bus_namespace'),'.servicebus.windows.net/;SharedAccessKeyName=',parameters('AuthRules_sb_queuePE'),';SharedAccessKey=',listkeys(variables('queueAuthorizationRuleResourceId1'),variables('sbVersion')).primaryKey,';EntityPath=',variables('service_bus_queuePendingevents'))]",
+                "name": "[parameters('SB_queue_endpointTwinChangeEvents')]",
+                "subscriptionId": "[parameters('subscriptionId')]",
+                "resourceGroup": "[resourceGroup().Name]"
+              },
+              {
+                "connectionString": "[Concat('Endpoint=sb://',variables('service_bus_namespace'),'.servicebus.windows.net/;SharedAccessKeyName=',parameters('AuthRules_sb_queueRE'),';SharedAccessKey=',listkeys(variables('queueAuthorizationRuleResourceId2'),variables('sbVersion')).primaryKey,';EntityPath=',variables('service_bus_queueResponse'))]",
+                "name": "[parameters('service_bus_queue_endpointResponse')]",
+                "subscriptionId": "[parameters('subscriptionId')]",
+                "resourceGroup": "[resourceGroup().Name]"
+              }
             ],
             "serviceBusTopics": [
               {
@@ -662,7 +670,7 @@
             {
               "name": "servicebustopicEvents",
               "source": "DeviceMessages",
-              "condition": "is_defined(eventType) AND eventType != 'AgentErrMsg' AND eventType != 'telemetryevent'",
+              "condition": "true",
               "endpointNames": [
                 "serviceBusTopicEvents"
               ],
@@ -718,7 +726,9 @@
       "scale": null,
       "properties": {
         "rights": [
-          "Send"
+          "Manage",
+          "Send",
+          "Listen"
         ]
       },
       "dependsOn": [
@@ -749,793 +759,853 @@
       "dependsOn": [
         "[concat('Microsoft.Devices/Iothubs/', variables('iotHubName'))]"
       ]
-    },
-    {
-      "type": "Microsoft.DocumentDB/databaseAccounts",
-      "name": "[variables('cosmosDbAccount')]",
-      "apiVersion": "2016-03-31",
-      "location": "[resourceGroup().location]",
-      "kind": "GlobalDocumentDB",
-      "properties": {
-        "databaseAccountOfferType": "Standard",
-        "consistencyPolicy": {
-          "defaultConsistencyLevel": "Session",
-          "maxIntervalInSeconds": 5,
-          "maxStalenessPrefix": 100
-        },
-        "name": "[variables('cosmosDbAccount')]"
-      }
-    },
+    }
+    //,
+    //{
+    //  "type": "Microsoft.DocumentDB/databaseAccounts",
+    //  "name": "[variables('cosmosDbAccount')]",
+    //  "apiVersion": "2016-03-31",
+    //  "location": "[resourceGroup().location]",
+    //  "kind": "GlobalDocumentDB",
+    //  "properties": {
+    //    "databaseAccountOfferType": "Standard",
+    //    "consistencyPolicy": {
+    //      "defaultConsistencyLevel": "Session",
+    //      "maxIntervalInSeconds": 5,
+    //      "maxStalenessPrefix": 100
+    //    },
+    //    "name": "[variables('cosmosDbAccount')]"
+    //  }
+    //}
+    //,
     //Create CosmosDB Database
-    {
-      "type": "Microsoft.DocumentDB/databaseAccounts/apis/databases",
-      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'))]",
-      "apiVersion": "2016-03-31",
-      "dependsOn": [
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/', variables('cosmosDbAccount'))]"
-      ],
-      "properties": {
-        "resource": {
-          "id": "[variables('SampleDatabaseName1')]"
-        },
-        "options": {
-          "throughput": "700"
-        }
-      }
-    },
-    {
-      "type": "Microsoft.DocumentDB/databaseAccounts/apis/databases",
-      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampledatabaseName2'))]",
-      "apiVersion": "2016-03-31",
-      "dependsOn": [
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/', variables('cosmosDbAccount'))]"
-      ],
-      "properties": {
-        "resource": {
-          "id": "[variables('SampledatabaseName2')]"
-        },
-        "options": {
-          "throughput": "700"
-        }
-      }
-    },
-    //CosmosDB Containers for Database 2
-    {
-      "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
-      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampledatabaseName2'), '/', variables('customersContainerName'))]",
-      "apiVersion": "2016-03-31",
-      "dependsOn": [
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampledatabaseName2'))]"
-      ],
-      "properties": {
-        "resource": {
-          "id": "[variables('customersContainerName')]",
-          "partitionKey": {
-            "paths": [
-              "/_partitionKey"
-            ],
-            "kind": "Hash"
-          },
-          "indexingPolicy": {
-            "indexingMode": "consistent",
-            "includedPaths": [
-              {
-                "path": "/*",
-                "indexes": [
-                  {
-                    "kind": "Range",
-                    "dataType": "number",
-                    "precision": -1
-                  },
-                  {
-                    "kind": "Hash",
-                    "dataType": "string",
-                    "precision": -1
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      }
-    },
-    //CosmosDB Containers Database 1
-    {
-      "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
-      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('customersContainerName'))]",
-      "apiVersion": "2016-03-31",
-      "dependsOn": [
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]"
-      ],
-      "properties": {
-        "resource": {
-          "id": "[variables('customersContainerName')]",
-          "partitionKey": {
-            "paths": [
-              "/customerId"
-            ],
-            "kind": "Hash"
-          },
-          "indexingPolicy": {
-            "indexingMode": "consistent",
-            "includedPaths": [
-              {
-                "path": "/*",
-                "indexes": [
-                  {
-                    "kind": "Range",
-                    "dataType": "number",
-                    "precision": -1
-                  },
-                  {
-                    "kind": "Hash",
-                    "dataType": "string",
-                    "precision": -1
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      }
-    },
-    {
-      "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
-      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('CustomerDataContainerName'))]",
-      "apiVersion": "2016-03-31",
-      "dependsOn": [
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('customersContainerName'))]"
-      ],
-      "properties": {
-        "resource": {
-          "id": "[variables('CustomerDataContainerName')]",
-          "partitionKey": {
-            "paths": [
-              "/partition"
-            ],
-            "kind": "Hash"
-          },
-          "indexingPolicy": {
-            "indexingMode": "consistent",
-            "includedPaths": [
-              {
-                "path": "/*",
-                "indexes": [
-                  {
-                    "kind": "Range",
-                    "dataType": "number",
-                    "precision": -1
-                  },
-                  {
-                    "kind": "Hash",
-                    "dataType": "string",
-                    "precision": -1
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      }
-    },
-    {
-      "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
-      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('eventsContainerName'))]",
-      "apiVersion": "2016-03-31",
-      "dependsOn": [
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('CustomerDataContainerName'))]"
-      ],
-      "properties": {
-        "resource": {
-          "id": "[variables('eventsContainerName')]",
-          "partitionKey": {
-            "paths": [
-              "/deviceId"
-            ],
-            "kind": "Hash"
-          },
-          "indexingPolicy": {
-            "indexingMode": "consistent",
-            "includedPaths": [
-              {
-                "path": "/*",
-                "indexes": [
-                  {
-                    "kind": "Range",
-                    "dataType": "number",
-                    "precision": -1
-                  },
-                  {
-                    "kind": "Hash",
-                    "dataType": "string",
-                    "precision": -1
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      }
-    },
-    {
-      "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
-      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('incidentsContainerName'))]",
-      "apiVersion": "2016-03-31",
-      "dependsOn": [
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('eventsContainerName'))]"
-      ],
-      "properties": {
-        "resource": {
-          "id": "[variables('incidentsContainerName')]",
-          "partitionKey": {
-            "paths": [
-              "/customerId"
-            ],
-            "kind": "Hash"
-          },
-          "indexingPolicy": {
-            "indexingMode": "consistent",
-            "includedPaths": [
-              {
-                "path": "/*",
-                "indexes": [
-                  {
-                    "kind": "Range",
-                    "dataType": "number",
-                    "precision": -1
-                  },
-                  {
-                    "kind": "Hash",
-                    "dataType": "string",
-                    "precision": -1
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      }
-    },
-    //Sample1ContainerName
-    {
-      "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
-      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('Sample1ContainerName'))]",
-      "apiVersion": "2016-03-31",
-      "dependsOn": [
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('incidentsContainerName'))]"
+    //{
+    //  "type": "Microsoft.DocumentDB/databaseAccounts/apis/databases",
+    //  "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'))]",
+    //  "apiVersion": "2016-03-31",
+    //  "dependsOn": [
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/', variables('cosmosDbAccount'))]"
+    //  ],
+    //  "properties": {
+    //    "resource": {
+    //      "id": "[variables('SampleDatabaseName1')]"
+    //    },
+    //    "options": {
+    //      "throughput": "700"
+    //    }
+    //  }
+    //},
+    //{
+    //  "type": "Microsoft.DocumentDB/databaseAccounts/apis/databases",
+    //  "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampledatabaseName2'))]",
+    //  "apiVersion": "2016-03-31",
+    //  "dependsOn": [
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/', variables('cosmosDbAccount'))]"
+    //  ],
+    //  "properties": {
+    //    "resource": {
+    //      "id": "[variables('SampledatabaseName2')]"
+    //    },
+    //    "options": {
+    //      "throughput": "700"
+    //    }
+    //  }
+    //},
+    ////CosmosDB Containers for Database 2
+    //{
+    //  "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+    //  "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampledatabaseName2'), '/', variables('customersContainerName'))]",
+    //  "apiVersion": "2016-03-31",
+    //  "dependsOn": [
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampledatabaseName2'))]"
+    //  ],
+    //  "properties": {
+    //    "resource": {
+    //      "id": "[variables('customersContainerName')]",
+    //      "partitionKey": {
+    //        "paths": [
+    //          "/_partitionKey"
+    //        ],
+    //        "kind": "Hash"
+    //      },
+    //      "indexingPolicy": {
+    //        "indexingMode": "consistent",
+    //        "includedPaths": [
+    //          {
+    //            "path": "/*",
+    //            "indexes": [
+    //              {
+    //                "kind": "Range",
+    //                "dataType": "number",
+    //                "precision": -1
+    //              },
+    //              {
+    //                "kind": "Hash",
+    //                "dataType": "string",
+    //                "precision": -1
+    //              }
+    //            ]
+    //          }
+    //        ]
+    //      }
+    //    }
+    //  }
+    //},
+    ////CosmosDB Containers Database 1
+    //{
+    //  "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+    //  "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('customersContainerName'))]",
+    //  "apiVersion": "2016-03-31",
+    //  "dependsOn": [
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]"
+    //  ],
+    //  "properties": {
+    //    "resource": {
+    //      "id": "[variables('customersContainerName')]",
+    //      "partitionKey": {
+    //        "paths": [
+    //          "/customerId"
+    //        ],
+    //        "kind": "Hash"
+    //      },
+    //      "indexingPolicy": {
+    //        "indexingMode": "consistent",
+    //        "includedPaths": [
+    //          {
+    //            "path": "/*",
+    //            "indexes": [
+    //              {
+    //                "kind": "Range",
+    //                "dataType": "number",
+    //                "precision": -1
+    //              },
+    //              {
+    //                "kind": "Hash",
+    //                "dataType": "string",
+    //                "precision": -1
+    //              }
+    //            ]
+    //          }
+    //        ]
+    //      }
+    //    }
+    //  }
+    //},
+    //{
+    //  "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+    //  "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('CustomerDataContainerName'))]",
+    //  "apiVersion": "2016-03-31",
+    //  "dependsOn": [
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('customersContainerName'))]"
+    //  ],
+    //  "properties": {
+    //    "resource": {
+    //      "id": "[variables('CustomerDataContainerName')]",
+    //      "partitionKey": {
+    //        "paths": [
+    //          "/partition"
+    //        ],
+    //        "kind": "Hash"
+    //      },
+    //      "indexingPolicy": {
+    //        "indexingMode": "consistent",
+    //        "includedPaths": [
+    //          {
+    //            "path": "/*",
+    //            "indexes": [
+    //              {
+    //                "kind": "Range",
+    //                "dataType": "number",
+    //                "precision": -1
+    //              },
+    //              {
+    //                "kind": "Hash",
+    //                "dataType": "string",
+    //                "precision": -1
+    //              }
+    //            ]
+    //          }
+    //        ]
+    //      }
+    //    }
+    //  }
+    //},
+    //{
+    //  "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+    //  "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('eventsContainerName'))]",
+    //  "apiVersion": "2016-03-31",
+    //  "dependsOn": [
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('CustomerDataContainerName'))]"
+    //  ],
+    //  "properties": {
+    //    "resource": {
+    //      "id": "[variables('eventsContainerName')]",
+    //      "partitionKey": {
+    //        "paths": [
+    //          "/deviceId"
+    //        ],
+    //        "kind": "Hash"
+    //      },
+    //      "indexingPolicy": {
+    //        "indexingMode": "consistent",
+    //        "includedPaths": [
+    //          {
+    //            "path": "/*",
+    //            "indexes": [
+    //              {
+    //                "kind": "Range",
+    //                "dataType": "number",
+    //                "precision": -1
+    //              },
+    //              {
+    //                "kind": "Hash",
+    //                "dataType": "string",
+    //                "precision": -1
+    //              }
+    //            ]
+    //          }
+    //        ]
+    //      }
+    //    }
+    //  }
+    //},
+    //{
+    //  "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+    //  "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('incidentsContainerName'))]",
+    //  "apiVersion": "2016-03-31",
+    //  "dependsOn": [
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('eventsContainerName'))]"
+    //  ],
+    //  "properties": {
+    //    "resource": {
+    //      "id": "[variables('incidentsContainerName')]",
+    //      "partitionKey": {
+    //        "paths": [
+    //          "/customerId"
+    //        ],
+    //        "kind": "Hash"
+    //      },
+    //      "indexingPolicy": {
+    //        "indexingMode": "consistent",
+    //        "includedPaths": [
+    //          {
+    //            "path": "/*",
+    //            "indexes": [
+    //              {
+    //                "kind": "Range",
+    //                "dataType": "number",
+    //                "precision": -1
+    //              },
+    //              {
+    //                "kind": "Hash",
+    //                "dataType": "string",
+    //                "precision": -1
+    //              }
+    //            ]
+    //          }
+    //        ]
+    //      }
+    //    }
+    //  }
+    //},
+    ////Sample1ContainerName
+    //{
+    //  "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+    //  "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('Sample1ContainerName'))]",
+    //  "apiVersion": "2016-03-31",
+    //  "dependsOn": [
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('incidentsContainerName'))]"
 
-      ],
-      "properties": {
-        "resource": {
-          "id": "[variables('Sample1ContainerName')]",
-          "partitionKey": {
-            "paths": [
-              "/partitionKey"
-            ],
-            "kind": "Hash"
-          },
-          "indexingPolicy": {
-            "indexingMode": "consistent",
-            "includedPaths": [
-              {
-                "path": "/*",
-                "indexes": [
-                  {
-                    "kind": "Range",
-                    "dataType": "number",
-                    "precision": -1
-                  },
-                  {
-                    "kind": "Hash",
-                    "dataType": "string",
-                    "precision": -1
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      }
-    },
-    {
-      "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
-      "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('leasesContainerName'))]",
-      "apiVersion": "2016-03-31",
-      "dependsOn": [
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('Sample1ContainerName'))]"
+    //  ],
+    //  "properties": {
+    //    "resource": {
+    //      "id": "[variables('Sample1ContainerName')]",
+    //      "partitionKey": {
+    //        "paths": [
+    //          "/partitionKey"
+    //        ],
+    //        "kind": "Hash"
+    //      },
+    //      "indexingPolicy": {
+    //        "indexingMode": "consistent",
+    //        "includedPaths": [
+    //          {
+    //            "path": "/*",
+    //            "indexes": [
+    //              {
+    //                "kind": "Range",
+    //                "dataType": "number",
+    //                "precision": -1
+    //              },
+    //              {
+    //                "kind": "Hash",
+    //                "dataType": "string",
+    //                "precision": -1
+    //              }
+    //            ]
+    //          }
+    //        ]
+    //      }
+    //    }
+    //  }
+    //},
+    //{
+    //  "type": "Microsoft.DocumentDb/databaseAccounts/apis/databases/containers",
+    //  "name": "[concat(variables('cosmosDbAccount'), '/sql/', variables('SampleDatabaseName1'), '/', variables('leasesContainerName'))]",
+    //  "apiVersion": "2016-03-31",
+    //  "dependsOn": [
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('Sample1ContainerName'))]"
 
-      ],
-      "properties": {
-        "resource": {
-          "id": "[variables('leasesContainerName')]",
-          "partitionKey": {
-            "paths": [
-              "/_partitionKey"
-            ],
-            "kind": "Hash"
-          },
-          "indexingPolicy": {
-            "indexingMode": "consistent",
-            "includedPaths": [
-              {
-                "path": "/*",
-                "indexes": [
-                  {
-                    "kind": "Range",
-                    "dataType": "number",
-                    "precision": -1
-                  },
-                  {
-                    "kind": "Hash",
-                    "dataType": "string",
-                    "precision": -1
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      }
-    },
+    //  ],
+    //  "properties": {
+    //    "resource": {
+    //      "id": "[variables('leasesContainerName')]",
+    //      "partitionKey": {
+    //        "paths": [
+    //          "/_partitionKey"
+    //        ],
+    //        "kind": "Hash"
+    //      },
+    //      "indexingPolicy": {
+    //        "indexingMode": "consistent",
+    //        "includedPaths": [
+    //          {
+    //            "path": "/*",
+    //            "indexes": [
+    //              {
+    //                "kind": "Range",
+    //                "dataType": "number",
+    //                "precision": -1
+    //              },
+    //              {
+    //                "kind": "Hash",
+    //                "dataType": "string",
+    //                "precision": -1
+    //              }
+    //            ]
+    //          }
+    //        ]
+    //      }
+    //    }
+    //  }
+    //}
+    //,
 
     //Azure Functions
-    {
-      "type": "Microsoft.Storage/storageAccounts",
-      "name": "[variables('storageAccountNameazfunc')]",
-      "apiVersion": "2016-12-01",
-      "location": "[parameters('location')]",
-      "kind": "Storage",
-      "sku": {
-        "name": "[parameters('storageAccountType')]"
-      }
-    },
-    {
-      "type": "Microsoft.Web/serverfarms",
-      "apiVersion": "2018-02-01",
-      "name": "[variables('hostingPlanName')]",
-      "location": "[parameters('location')]",
-      "sku": {
-        "name": "Y1",
-        "tier": "Dynamic"
-      },
-      "properties": {
-        "name": "[variables('hostingPlanName')]",
-        "computeMode": "Dynamic"
-      }
-    },
-    {
-      "apiVersion": "2015-08-01",
-      "type": "Microsoft.Web/sites",
-      "name": "[Concat(variables('functionAppName'))]",
-      "location": "[parameters('location')]",
-      "kind": "functionapp",
-      "dependsOn": [
-        "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
-        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountNameazfunc'))]",
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('leasesContainerName'))]"
-      ],
-      "properties": {
-        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
-        "siteConfig": {
-          "appSettings": [
-            {
-              "name": "WEBSITE_CONTENTSHARE",
-              "value": "[toLower(variables('functionAppName'))]"
-            },
-            {
-              "name": "FUNCTIONS_EXTENSION_VERSION",
-              "value": "~2"
-            },
-            {
-              "name": "WEBSITE_NODE_DEFAULT_VERSION",
-              "value": "8.11.1"
-            },
-            {
-              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
-              "value": "[reference(resourceId('microsoft.insights/components/', variables('applicationInsightsName')), '2015-05-01').InstrumentationKey]"
-            },
-            {
-              "name": "FUNCTIONS_WORKER_RUNTIME",
-              "value": "[variables('functionWorkerRuntime')]"
-            },
-            {
-              "name": "WEBSITE_RUN_FROM_ZIP",
-              "value": "[variables('functionBlobUrl')]"
-            },
-            {
-              "name": "WEBSITE_RUN_FROM_PACKAGE",
-              "value": "[variables('functionBlobUrl')]"
-            },
-            {
-              "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
-              "value": true
-            },
+    //{
+    //  "type": "Microsoft.Storage/storageAccounts",
+    //  "name": "[variables('storageAccountNameazfunc')]",
+    //  "apiVersion": "2016-12-01",
+    //  "location": "[parameters('location')]",
+    //  "kind": "Storage",
+    //  "sku": {
+    //    "name": "[parameters('storageAccountType')]"
+    //  }
+    //}
+    //,
+    //{
+    //  "type": "Microsoft.Web/serverfarms",
+    //  "apiVersion": "2018-02-01",
+    //  "name": "[variables('hostingPlanName')]",
+    //  "location": "[parameters('location')]",
+    //  "sku": {
+    //    "name": "Y1",
+    //    "tier": "Dynamic"
+    //  },
+    //  "properties": {
+    //    "name": "[variables('hostingPlanName')]",
+    //    "computeMode": "Dynamic"
+    //  }
+    //},
+    //{
+    //  "apiVersion": "2015-08-01",
+    //  "type": "Microsoft.Web/sites",
+    //  "name": "[Concat(variables('functionAppName'))]",
+    //  "location": "[parameters('location')]",
+    //  "kind": "functionapp",
+    //  "dependsOn": [
+    //    "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+    //    "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountNameazfunc'))]",
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('leasesContainerName'))]"
+    //  ],
+    //  "properties": {
+    //    "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+    //    "siteConfig": {
+    //      "appSettings": [
+    //        //{
+    //        //  "name": "AzureWebJobsDashboard",
+    //        //  "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountid'),'2015-05-01-preview').key1)]"
+    //        //},
+    //        //{
+    //        //  "name": "AzureWebJobsStorage",
+    //        //  "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountid'),'2015-05-01-preview').key1)]"
+    //        //},
+    //        //{
+    //        //  "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+    //        //  "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountid'),'2015-05-01-preview').key1)]"
+    //        //},
+    //        {
+    //          "name": "WEBSITE_CONTENTSHARE",
+    //          "value": "[toLower(variables('functionAppName'))]"
+    //        },
+    //        {
+    //          "name": "FUNCTIONS_EXTENSION_VERSION",
+    //          "value": "~2"
+    //        },
+    //        {
+    //          "name": "WEBSITE_NODE_DEFAULT_VERSION",
+    //          "value": "8.11.1"
+    //        },
+    //        {
+    //          "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+    //          "value": "[reference(resourceId('microsoft.insights/components/', variables('applicationInsightsName')), '2015-05-01').InstrumentationKey]"
+    //        },
+    //        {
+    //          "name": "FUNCTIONS_WORKER_RUNTIME",
+    //          "value": "[variables('functionWorkerRuntime')]"
+    //        },
+    //        {
+    //          "name": "WEBSITE_RUN_FROM_ZIP",
+    //          "value": "[variables('functionBlobUrl')]"
+    //        },
+    //        {
+    //          "name": "WEBSITE_RUN_FROM_PACKAGE",
+    //          "value": "[variables('functionBlobUrl')]"
+    //        },
+    //        {
+    //          "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+    //          "value": true
+    //        },
 
-            {
-              "name": "AZURE_DEVOPS_URL",
-              "value": "https://skypeforbusinesspartnerengineering.visualstudio.com/",
-              "slotSetting": false
-            },
-            {
-              "name": "BLOB_SERVER_CONNECTION_STRING",
-              "value": "[Concat('DefaultEndpointsProtocol=https;AccountName=',variables('storageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value)]",
-              "slotSetting": false
-            },
-            {
-              "name": "DOCUMENTDB_HOST",
-              "value": "[concat('https://', variables('cosmosDbAccount'), '.documents.azure.com:443/')]",
-              "slotSetting": false
-            },
-            {
-              "name": "DOCUMENTDB_MASTER_KEY",
-              "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';')]",
-              "slotSetting": false
-            },
-            {
-              "name": "Application1_BLOB_CONNECTION_STRING",
-              "value": "[Concat('DefaultEndpointsProtocol=https;AccountName=',variables('storageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value)]",
-              "slotSetting": false
-            },
-            {
-              "name": "Application1_DOCUMENTDB_HOST",
-              "value": "[concat('https://', variables('cosmosDbAccount'), '.documents.azure.com:443/')]",
-              "slotSetting": false
-            },
-            {
-              "name": "Application1_DOCUMENTDB_MASTERKEY",
-              "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';')]",
-              "slotSetting": false
-            },
-            {
-              "name": "IOTHUB_CONNECTION_STRING",
-              "value": "[concat('HostName=', reference(resourceId('Microsoft.Devices/IoTHubs', variables('iotHubName')), providers('Microsoft.Devices', 'IoTHubs').apiVersions[0]).hostName, ';SharedAccessKeyName=iothubowner;SharedAccessKey=', listKeys(resourceId('Microsoft.Devices/IotHubs', variables('iotHubName')), providers('Microsoft.Devices', 'IoTHubs').apiVersions[0]).value[0].primaryKey)]",
-              "slotSetting": false
-            },
-            {
-              "name": "DOCUMENTDB_CONNECTION_STRING",
-              "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';')]",
-              "slotSetting": false
-            },
-            {
-              "name": "EVENTS_TOPIC",
-              "value": "events",
-              "slotSetting": false
-            },
-            {
-              "name": "OPERATOR_EMAIL",
-              "value": "SampleSupport@gmail.com",
-              "slotSetting": false
-            },
-            {
-              "name": "PENDING_QUEUE",
-              "value": "pendingevents",
-              "slotSetting": false
-            },
-            {
-              "name": "SERVICEBUS_CONNECTION_STRING",
-              "value": "[Concat('Endpoint=sb://',variables('service_bus_namespace'),'.servicebus.windows.net/;SharedAccessKeyName=',parameters('AuthRules_sb_queuePE'),';SharedAccessKey=',listkeys(variables('queueAuthorizationRuleResourceId1'),variables('sbVersion')).primaryKey,';EntityPath=',variables('service_bus_queuePendingevents'))]",
-              "slotSetting": false
-            },
-            {
-              "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
-              "value": "[Concat('DefaultEndpointsProtocol=https;AccountName=',variables('storageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value)]",
-              "slotSetting": false
-            }
-          ]
-        }
-      }
-    },
-    {
-      "apiVersion": "2018-05-01-preview",
-      "name": "[variables('applicationInsightsName')]",
-      "type": "microsoft.insights/components",
-      "location": "East US",
-      "tags": {
-        "[concat('hidden-link:', uniqueString(resourceGroup().id), '/providers/Microsoft.Web/sites/', variables('applicationInsightsName'))]": "Resource"
-      },
-      "properties": {
-        "ApplicationId": "[variables('applicationInsightsName')]",
-        "Request_Source": "SamplesWebAppExtensionCreate"
-      }
-    },
+    //        //{
+    //        //  "name": "AZURE_DEVOPS_TOKEN",
+    //        //  "value": "@Microsoft.KeyVault(SecretUri=https://XXXXX.vault.azure.net/secrets/AzureDevopsToken/XXXXXXXXXXXXXX)",
+    //        //  "slotSetting": false
+    //        //},
+    //        {
+    //          "name": "AZURE_DEVOPS_URL",
+    //          "value": "https://XXXXXXXXXXX.visualstudio.com/",
+    //          "slotSetting": false
+    //        },
+    //        //{
+    //        //  "name": "AzureWebJobsStorage",
+    //        //  "value": "@Microsoft.KeyVault(SecretUri=https://XXXXX.vault.azure.net/secrets/AzureWebJobsStorageForCustomerPortalApi/XXXXXXXXXXXX)",
+    //        //  "slotSetting": false
+    //        //},
+    //        //{
+    //        //  "name": "BLOB_SERVER_CONNECTION_STRING",
+    //        //  "value": "[Concat('DefaultEndpointsProtocol=https;AccountName=',variables('storageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value)]",
+    //        //  "slotSetting": false
+    //        //},
+    //        {
+    //          "name": "DOCUMENTDB_HOST",
+    //          "value": "[concat('https://', variables('cosmosDbAccount'), '.documents.azure.com:443/')]",
+    //          "slotSetting": false
+    //        },
+    //        {
+    //          "name": "DOCUMENTDB_MASTER_KEY",
+    //          "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';')]",
+    //          "slotSetting": false
+    //        },
+    //        //{
+    //        //  "name": "FASTTRACK_BLOB_CONNECTION_STRING",
+    //        //  "value": "[Concat('DefaultEndpointsProtocol=https;AccountName=',variables('storageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value)]",
+    //        //  "slotSetting": false
+    //        //},
+    //        //{
+    //        //  "name": "FASTTRACK_DOCUMENTDB_HOST",
+    //        //  "value": "[concat('https://', variables('cosmosDbAccount'), '.documents.azure.com:443/')]",
+    //        //  "slotSetting": false
+    //        //},
+    //        //{
+    //        //  "name": "FASTTRACK_DOCUMENTDB_MASTERKEY",
+    //        //  "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';')]",
+    //        //  "slotSetting": false
+    //        //},
+    //        {
+    //          "name": "IOTHUB_CONNECTION_STRING",
+    //          "value": "[concat('HostName=', reference(resourceId('Microsoft.Devices/IoTHubs', variables('iotHubName')), providers('Microsoft.Devices', 'IoTHubs').apiVersions[0]).hostName, ';SharedAccessKeyName=iothubowner;SharedAccessKey=', listKeys(resourceId('Microsoft.Devices/IotHubs', variables('iotHubName')), providers('Microsoft.Devices', 'IoTHubs').apiVersions[0]).value[0].primaryKey)]",
+    //          "slotSetting": false
+    //        },
+    //        {
+    //          "name": "DOCUMENTDB_CONNECTION_STRING",
+    //          "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';')]",
+    //          "slotSetting": false
+    //        },
+    //        {
+    //          "name": "EVENTS_TOPIC",
+    //          "value": "events",
+    //          "slotSetting": false
+    //        },
+    //        {
+    //          "name": "OPERATOR_EMAIL",
+    //          "value": "email@gmail.com",
+    //          "slotSetting": false
+    //        },
+    //        {
+    //          "name": "PENDING_QUEUE",
+    //          "value": "pendingevents",
+    //          "slotSetting": false
+    //        },
+    //        //{
+    //        //  "name": "IOTPROV_CONNECTION_STRING",
+    //        //  "value": "@Microsoft.KeyVault(SecretUri=https://XXXXXXXXXX.vault.azure.net/secrets/ProvisioningConnectionString/XXXXXXXXXXXXXX)",
+    //        //  "slotSetting": false
+    //        //},
+    //        //{
+    //        //  "name": "MICROSOFT_TENANT_ID",
+    //        //  "value": "XXXXXXXXXXXXXX",
+    //        //  "slotSetting": false
+    //        //},
+    //        {
+    //          "name": "SERVICEBUS_CONNECTION_STRING",
+    //          "value": "[Concat('Endpoint=sb://',variables('service_bus_namespace'),'.servicebus.windows.net/;SharedAccessKeyName=',parameters('AuthRules_sb_queuePE'),';SharedAccessKey=',listkeys(variables('queueAuthorizationRuleResourceId1'),variables('sbVersion')).primaryKey,';EntityPath=',variables('service_bus_queuePendingevents'))]",
+    //          //"value": "[listKeys(resourceId(concat('Microsoft.ServiceBus/namespaces/AuthorizationRules'),parameters('serviceBusNamespace'),'RootManageSharedAccessKey'),'2015-08-01').primaryConnectionString]",
+    //          "slotSetting": false
+    //        },
+    //        //{
+    //        //  "name": "SIGNALR_CONNECTION_STRING",
+    //        //  "value": "@Microsoft.KeyVault(SecretUri=https://XXXXXXXX.vault.azure.net/secrets/SignalRString/XXXXXXXXXXXXXXXXXXXXXX)",
+    //        //  "slotSetting": false
+    //        //},
+    //        {
+    //          "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+    //          "value": "[Concat('DefaultEndpointsProtocol=https;AccountName=',variables('storageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value)]",
+    //          "slotSetting": false
+    //        }
+    //        //{
+    //        //  "name": "WEBSITE_CONTENTSHARE",
+    //        //  "value": "Samplesapi-dev93eb",
+    //        //  "slotSetting": false
+    //        //},
+    //        //{
+    //        //  "name": "WEBSITE_NODE_DEFAULT_VERSION",
+    //        //  "value": "10.14.1",
+    //        //  "slotSetting": false
+    //        //},
+    //        //{
+    //        //  "name": "WEBSITE_RUN_FROM_PACKAGE",
+    //        //  "value": "1",
+    //        //  "slotSetting": false
+    //        //}
+
+    //      ]
+    //    }
+    //  }
+    //}
+    //,
+    //{
+    //  "apiVersion": "2018-05-01-preview",
+    //  "name": "[variables('applicationInsightsName')]",
+    //  "type": "microsoft.insights/components",
+    //  "location": "East US",
+    //  "tags": {
+    //    "[concat('hidden-link:', parameters('UniqueString'), '/providers/Microsoft.Web/sites/', variables('applicationInsightsName'))]": "Resource"
+    //  },
+    //  "properties": {
+    //    "ApplicationId": "[variables('applicationInsightsName')]",
+    //    "Request_Source": "SamplesWebAppExtensionCreate"
+    //  }
+    //},
     //Copy CosmosDB Data
-    {
-      "name": "[variables('dataFactoryName')]",
-      "apiVersion": "2018-06-01",
-      "type": "Microsoft.DataFactory/factories",
-      "location": "[parameters('location')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
-        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountNameazfunc'))]",
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('leasesContainerName'))]"
-      ],
-      "identity": {
-        "type": "SystemAssigned"
-      },
-      "properties": {},
-      "resources": [
-        //CosmosInputLinkedServ
-        {
-          "name": "[concat(variables('dataFactoryName'), '/CosmosInputLinkedServ')]",
-          "apiVersion": "2018-06-01",
-          "type": "Microsoft.DataFactory/factories/linkedServices",
-          "properties": {
-            "type": "CosmosDb",
-            "annotations": [
-            ],
-            "typeProperties": {
-              "connectionString": {
-                "type": "SecureString",
-                "value": "AccountEndpoint=https://Sampledb.documents.azure.com:443/;AccountKey=XXXXXXXXXX;Database=Sample-storage;"
-              }
-            }
-          },
-          "dependsOn": [
-            "[variables('dataFactoryName')]"
-          ]
-        },
-        //CosmosOutputLinkedServ
-        {
-          "name": "[concat(variables('dataFactoryName'), '/CosmosOutputLinkedServ')]",
-          "type": "Microsoft.DataFactory/factories/linkedServices",
-          "apiVersion": "2018-06-01",
-          "properties": {
-            "type": "CosmosDb",
-            "annotations": [
-            ],
-            "typeProperties": {
-              "connectionString": {
-                "type": "SecureString",
-                "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';Database=Sample-storage;')]"
-              }
-            }
-          },
-          "dependsOn": [
-            "[variables('dataFactoryName')]"
-          ]
-        },
-        //CosmosInputPCSLinkedServ
-        {
-          "name": "[concat(variables('dataFactoryName'), '/CosmosInputPCSLinkedServ')]",
-          "apiVersion": "2018-06-01",
-          "type": "Microsoft.DataFactory/factories/linkedServices",
-          "properties": {
-            "type": "CosmosDb",
-            "annotations": [
-            ],
-            "typeProperties": {
-              "connectionString": {
-                "type": "SecureString",
-                "value": "AccountEndpoint=https://Sampleautomation.documents.azure.com:443/;AccountKey=XXXXX;Database=Sample-storage;"
-              }
-            }
-          },
-          "dependsOn": [
-            "[variables('dataFactoryName')]"
-          ]
-        },
-        //CosmosOutputPCSLinkedServ
-        {
-          "name": "[concat(variables('dataFactoryName'), '/CosmosOutputPCSLinkedServ')]",
-          "type": "Microsoft.DataFactory/factories/linkedServices",
-          "apiVersion": "2018-06-01",
-          "properties": {
-            "type": "CosmosDb",
-            "annotations": [
-            ],
-            "typeProperties": {
-              "connectionString": {
-                "type": "SecureString",
-                "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';Database=sample-storage;')]"
-              }
-            }
-          },
-          "dependsOn": [
-            "[variables('dataFactoryName')]"
-          ]
-        },
-        //InputDSIncidentType
-        {
-          "type": "Microsoft.DataFactory/factories/datasets",
-          "apiVersion": "2018-06-01",
-          "dependsOn": [
-            "[variables('dataFactoryName')]",
-            "[concat(variables('factoryId'), '/linkedServices/CosmosInputLinkedServ')]"
-          ],
-          "name": "[concat(variables('dataFactoryName'), '/InputDSIncidentType')]",
-          "properties": {
-            "annotations": [
+    //{
+    //  "name": "[variables('dataFactoryName')]",
+    //  "apiVersion": "2018-06-01",
+    //  "type": "Microsoft.DataFactory/factories",
+    //  "location": "[parameters('location')]",
+    //  "dependsOn": [
+    //    "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+    //    "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountNameazfunc'))]",
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'))]",
+    //    "[resourceId('Microsoft.DocumentDB/databaseAccounts/apis/databases/containers', variables('cosmosDbAccount'), 'sql', variables('SampleDatabaseName1'), variables('leasesContainerName'))]"
+    //  ],
+    //  "identity": {
+    //    "type": "SystemAssigned"
+    //  },
+    //  "properties": {},
+    //  "resources": [
+    //    //CosmosInputLinkedServ
+    //    {
+    //      "name": "[concat(variables('dataFactoryName'), '/CosmosInputLinkedServ')]",
+    //      "apiVersion": "2018-06-01",
+    //      "type": "Microsoft.DataFactory/factories/linkedServices",
+    //      "properties": {
+    //        "type": "CosmosDb",
+    //        "annotations": [
+    //        ],
+    //        "typeProperties": {
+    //          "connectionString": {
+    //            "type": "SecureString",
+    //            "value": "AccountEndpoint=https://Sampledb.documents.azure.com:443/;AccountKey=XXXXXXXXXX;Database=XXXXXXXXXXXXXXX;"
+    //          }
+    //        }
+    //      },
+    //      "dependsOn": [
+    //        "[variables('dataFactoryName')]"
+    //      ]
+    //    },
+    //    //CosmosOutputLinkedServ
+    //    {
+    //      "name": "[concat(variables('dataFactoryName'), '/CosmosOutputLinkedServ')]",
+    //      "type": "Microsoft.DataFactory/factories/linkedServices",
+    //      "apiVersion": "2018-06-01",
+    //      "properties": {
+    //        "type": "CosmosDb",
+    //        "annotations": [
+    //        ],
+    //        "typeProperties": {
+    //          "connectionString": {
+    //            "type": "SecureString",
+    //            //To Do
+    //            "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';Database=Sample-storage;')]"
+    //          }
+    //        }
+    //      },
+    //      "dependsOn": [
+    //        "[variables('dataFactoryName')]"
+    //      ]
+    //    },
+    //    //CosmosInputPCSLinkedServ
+    //    {
+    //      "name": "[concat(variables('dataFactoryName'), '/CosmosInputPCSLinkedServ')]",
+    //      "apiVersion": "2018-06-01",
+    //      "type": "Microsoft.DataFactory/factories/linkedServices",
+    //      "properties": {
+    //        "type": "CosmosDb",
+    //        "annotations": [
+    //        ],
+    //        "typeProperties": {
+    //          "connectionString": {
+    //            "type": "SecureString",
+    //            "value": "AccountEndpoint=https://Sampleautomation.documents.azure.com:443/;AccountKey=XXXXX;Database=Sample-storage;"
+    //          }
+    //        }
+    //      },
+    //      "dependsOn": [
+    //        "[variables('dataFactoryName')]"
+    //      ]
+    //    },
+    //    //CosmosOutputPCSLinkedServ
+    //    {
+    //      "name": "[concat(variables('dataFactoryName'), '/CosmosOutputPCSLinkedServ')]",
+    //      "type": "Microsoft.DataFactory/factories/linkedServices",
+    //      "apiVersion": "2018-06-01",
+    //      "properties": {
+    //        "type": "CosmosDb",
+    //        "annotations": [
+    //        ],
+    //        "typeProperties": {
+    //          "connectionString": {
+    //            "type": "SecureString",
+    //            "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';Database=sample-storage;')]"
+    //          }
+    //        }
+    //      },
+    //      "dependsOn": [
+    //        "[variables('dataFactoryName')]"
+    //      ]
+    //    },
+    //    //InputDSIncidentType
+    //    {
+    //      "type": "Microsoft.DataFactory/factories/datasets",
+    //      "apiVersion": "2018-06-01",
+    //      "dependsOn": [
+    //        "[variables('dataFactoryName')]",
+    //        "[concat(variables('factoryId'), '/linkedServices/CosmosInputLinkedServ')]"
+    //      ],
+    //      "name": "[concat(variables('dataFactoryName'), '/InputDSIncidentType')]",
+    //      "properties": {
+    //        "annotations": [
 
-            ],
-            "external": true,
-            "linkedServiceName": {
-              "referenceName": "CosmosInputLinkedServ",
-              "type": "LinkedServiceReference"
-            },
-            "type": "DocumentDbCollection",
-            "typeProperties": {
-              "collectionName": "incidentType"
-            }
-          }
-        },
-        //OutputDSIncidentType
-        {
-          "name": "[concat(variables('dataFactoryName'), '/OutputDSIncidentType')]",
-          "type": "Microsoft.DataFactory/factories/datasets",
-          "apiVersion": "2018-06-01",
-          "properties": {
-            "annotations": [
+    //        ],
+    //        "external": true,
+    //        "linkedServiceName": {
+    //          "referenceName": "CosmosInputLinkedServ",
+    //          "type": "LinkedServiceReference"
+    //        },
+    //        "type": "DocumentDbCollection",
+    //        "typeProperties": {
+    //          "collectionName": "incidentType"
+    //        }
+    //      }
+    //    },
+    //    //OutputDSIncidentType
+    //    {
+    //      "name": "[concat(variables('dataFactoryName'), '/OutputDSIncidentType')]",
+    //      "type": "Microsoft.DataFactory/factories/datasets",
+    //      "apiVersion": "2018-06-01",
+    //      "properties": {
+    //        "annotations": [
 
-            ],
-            "external": true,
-            "linkedServiceName": {
-              "referenceName": "CosmosOutputLinkedServ",
-              "type": "LinkedServiceReference"
-            },
-            "type": "DocumentDbCollection",
-            "typeProperties": {
-              "collectionName": "incidentType"
-            }
-          },
-          "dependsOn": [
-            "[variables('dataFactoryName')]",
-            "[concat(variables('factoryId'), '/linkedServices/CosmosOutputLinkedServ')]"
-          ]
-        },
-        //InputDSCustomer
-        {
-          "name": "[concat(variables('dataFactoryName'), '/InputDSCustomer')]",
-          "type": "Microsoft.DataFactory/factories/datasets",
-          "apiVersion": "2018-06-01",
-          "properties": {
-            "annotations": [],
-            "external": true,
-            "linkedServiceName": {
-              "referenceName": "CosmosInputLinkedServ",
-              "type": "LinkedServiceReference"
-            },
-            "type": "DocumentDbCollection",
-            "typeProperties": {
-              "collectionName": "[variables('customersContainerName')]"
-            }
-          },
-          "dependsOn": [
-            "[variables('dataFactoryName')]",
-            "[concat(variables('factoryId'), '/linkedServices/CosmosInputLinkedServ')]"
-          ]
-        },
-        //OutputDSCustomer
-        {
-          "name": "[concat(variables('dataFactoryName'), '/OutputDSCustomer')]",
-          "type": "Microsoft.DataFactory/factories/datasets",
-          "apiVersion": "2018-06-01",
-          "properties": {
-            "annotations": [
+    //        ],
+    //        "external": true,
+    //        "linkedServiceName": {
+    //          "referenceName": "CosmosOutputLinkedServ",
+    //          "type": "LinkedServiceReference"
+    //        },
+    //        "type": "DocumentDbCollection",
+    //        "typeProperties": {
+    //          "collectionName": "incidentType"
+    //        }
+    //      },
+    //      "dependsOn": [
+    //        "[variables('dataFactoryName')]",
+    //        "[concat(variables('factoryId'), '/linkedServices/CosmosOutputLinkedServ')]"
+    //      ]
+    //    },
+    //    //InputDSCustomer
+    //    {
+    //      "name": "[concat(variables('dataFactoryName'), '/InputDSCustomer')]",
+    //      "type": "Microsoft.DataFactory/factories/datasets",
+    //      "apiVersion": "2018-06-01",
+    //      "properties": {
+    //        "annotations": [],
+    //        "external": true,
+    //        "linkedServiceName": {
+    //          "referenceName": "CosmosInputLinkedServ",
+    //          "type": "LinkedServiceReference"
+    //        },
+    //        "type": "DocumentDbCollection",
+    //        "typeProperties": {
+    //          "collectionName": "[variables('customersContainerName')]"
+    //        }
+    //      },
+    //      "dependsOn": [
+    //        "[variables('dataFactoryName')]",
+    //        "[concat(variables('factoryId'), '/linkedServices/CosmosInputLinkedServ')]"
+    //      ]
+    //    },
+    //    //OutputDSCustomer
+    //    {
+    //      "name": "[concat(variables('dataFactoryName'), '/OutputDSCustomer')]",
+    //      "type": "Microsoft.DataFactory/factories/datasets",
+    //      "apiVersion": "2018-06-01",
+    //      "properties": {
+    //        "annotations": [
 
-            ],
-            "external": true,
-            "linkedServiceName": {
-              "referenceName": "CosmosOutputLinkedServ",
-              "type": "LinkedServiceReference"
-            },
-            "type": "DocumentDbCollection",
-            "typeProperties": {
-              "collectionName": "[variables('customersContainerName')]"
-            }
-          },
-          "dependsOn": [
-            "[variables('dataFactoryName')]",
-            "[concat(variables('factoryId'), '/linkedServices/CosmosOutputLinkedServ')]"
-          ]
-        },
-        //InputDSPCSCustomer
-        {
-          "name": "[concat(variables('dataFactoryName'), '/InputDSPCSCustomer')]",
-          "type": "Microsoft.DataFactory/factories/datasets",
-          "apiVersion": "2018-06-01",
-          "properties": {
-            "annotations": [
+    //        ],
+    //        "external": true,
+    //        "linkedServiceName": {
+    //          "referenceName": "CosmosOutputLinkedServ",
+    //          "type": "LinkedServiceReference"
+    //        },
+    //        "type": "DocumentDbCollection",
+    //        "typeProperties": {
+    //          "collectionName": "[variables('customersContainerName')]"
+    //        }
+    //      },
+    //      "dependsOn": [
+    //        "[variables('dataFactoryName')]",
+    //        "[concat(variables('factoryId'), '/linkedServices/CosmosOutputLinkedServ')]"
+    //      ]
+    //    },
+    //    //InputDSPCSCustomer
+    //    {
+    //      "name": "[concat(variables('dataFactoryName'), '/InputDSPCSCustomer')]",
+    //      "type": "Microsoft.DataFactory/factories/datasets",
+    //      "apiVersion": "2018-06-01",
+    //      "properties": {
+    //        "annotations": [
 
-            ],
-            "external": true,
-            "linkedServiceName": {
-              "referenceName": "CosmosInputPCSLinkedServ",
-              "type": "LinkedServiceReference"
-            },
-            "type": "DocumentDbCollection",
-            "typeProperties": {
-              "collectionName": "[variables('customersContainerName')]"
-            }
-          },
-          "dependsOn": [
-            "[variables('dataFactoryName')]",
-            "[concat(variables('factoryId'), '/linkedServices/CosmosInputPCSLinkedServ')]"
-          ]
-        },
-        //OutputDSSampleCustomer
-        {
-          "name": "[concat(variables('dataFactoryName'), '/OutputDSSampleCustomer')]",
-          "type": "Microsoft.DataFactory/factories/datasets",
-          "apiVersion": "2018-06-01",
-          "properties": {
-            "annotations": [
+    //        ],
+    //        "external": true,
+    //        "linkedServiceName": {
+    //          "referenceName": "CosmosInputPCSLinkedServ",
+    //          "type": "LinkedServiceReference"
+    //        },
+    //        "type": "DocumentDbCollection",
+    //        "typeProperties": {
+    //          "collectionName": "[variables('customersContainerName')]"
+    //        }
+    //      },
+    //      "dependsOn": [
+    //        "[variables('dataFactoryName')]",
+    //        "[concat(variables('factoryId'), '/linkedServices/CosmosInputPCSLinkedServ')]"
+    //      ]
+    //    },
+    //    //OutputDSSampleCustomer
+    //    {
+    //      "name": "[concat(variables('dataFactoryName'), '/OutputDSSampleCustomer')]",
+    //      "type": "Microsoft.DataFactory/factories/datasets",
+    //      "apiVersion": "2018-06-01",
+    //      "properties": {
+    //        "annotations": [
 
-            ],
-            "external": true,
-            "linkedServiceName": {
-              "referenceName": "CosmosOutputPCSLinkedServ",
-              "type": "LinkedServiceReference"
-            },
-            "type": "DocumentDbCollection",
-            "typeProperties": {
-              "collectionName": "[variables('customersContainerName')]"
-            }
-          },
-          "dependsOn": [
-            "[variables('dataFactoryName')]",
-            "[concat(variables('factoryId'), '/linkedServices/CosmosOutputPCSLinkedServ')]"
-          ]
-        },
-        //Copy Activity
-        {
-          "name": "[concat(variables('dataFactoryName'), '/ArmtemplateSampleCopyPipeline')]",
-          "type": "Microsoft.DataFactory/factories/pipelines",
-          "apiVersion": "2018-06-01",
-          "properties": {
-            "description": "Copy IncidentType Collection",
-            "activities": [
-              {
-                "inputs": [
-                  {
-                    "referenceName": "InputDSPCSCustomer",
-                    "type": "DatasetReference"
-                  }
-                ],
-                "name": "CopyPCSStorageCustomer",
-                "outputs": [
-                  {
-                    "referenceName": "OutputDSSampleCustomer",
-                    "type": "DatasetReference"
-                  }
-                ],
-                "type": "Copy",
-                "typeProperties": {
-                  "source": {
-                    "type": "DocumentDbCollectionSource"
-                  },
-                  "sink": {
-                    "type": "DocumentDbCollectionSink"
-                  }
-                }
-              }
-            ]
-          },
-          "dependsOn": [
-            "[variables('dataFactoryName')]",
-            "[concat(variables('factoryId'), '/datasets/InputDSPCSCustomer')]",
-            "[concat(variables('factoryId'), '/datasets/OutputDSSampleCustomer')]"
-          ]
-        }
-        //CosmosDB Copy Data done.
-      ]
-    }
+    //        ],
+    //        "external": true,
+    //        "linkedServiceName": {
+    //          "referenceName": "CosmosOutputPCSLinkedServ",
+    //          "type": "LinkedServiceReference"
+    //        },
+    //        "type": "DocumentDbCollection",
+    //        "typeProperties": {
+    //          "collectionName": "[variables('customersContainerName')]"
+    //        }
+    //      },
+    //      "dependsOn": [
+    //        "[variables('dataFactoryName')]",
+    //        "[concat(variables('factoryId'), '/linkedServices/CosmosOutputPCSLinkedServ')]"
+    //      ]
+    //    },
+    //    //Copy Activity
+    //    {
+    //      "name": "[concat(variables('dataFactoryName'), '/ArmtemplateSampleCopyPipeline')]",
+    //      "type": "Microsoft.DataFactory/factories/pipelines",
+    //      "apiVersion": "2018-06-01",
+    //      "properties": {
+    //        "description": "Copy IncidentType Collection",
+    //        "activities": [
+    //          {
+    //            "inputs": [
+    //              {
+    //                "referenceName": "InputDSPCSCustomer",
+    //                "type": "DatasetReference"
+    //              }
+    //            ],
+    //            "name": "CopyPCSStorageCustomer",
+    //            "outputs": [
+    //              {
+    //                "referenceName": "OutputDSSampleCustomer",
+    //                "type": "DatasetReference"
+    //              }
+    //            ],
+    //            "type": "Copy",
+    //            "typeProperties": {
+    //              "source": {
+    //                "type": "DocumentDbCollectionSource"
+    //              },
+    //              "sink": {
+    //                "type": "DocumentDbCollectionSink"
+    //              }
+    //            }
+    //          }
+    //        ]
+    //      },
+    //      "dependsOn": [
+    //        "[variables('dataFactoryName')]",
+    //        "[concat(variables('factoryId'), '/datasets/InputDSPCSCustomer')]",
+    //        "[concat(variables('factoryId'), '/datasets/OutputDSSampleCustomer')]"
+    //      ]
+    //    }
+    //    //CosmosDB Copy Data done.
+    //  ]
+    //}
   ],
   "outputs": {
-    "CosmosDBConnectionString1": {
-      "type": "string",
-      "value": "AccountEndpoint=https://Sampleautomation.documents.azure.com:443/;AccountKey=XXXXXXXXXXXXXXX;Database=Sample-storage;"
-    },
-    "CosmosDBConnectionString2": {
-      "type": "string",
-      "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';Database=sample-storage;')]"
-    },
+    //"CosmosDBConnectionString1": {
+    //  "type": "string",
+    //  "value": "AccountEndpoint=https://XXXXXXXXXXXXX.documents.azure.com:443/;AccountKey=XXXXXXXXXXXXXXX;Database=XXXXXXXXXXXXXX;"
+    //},
+    //"CosmosDBConnectionString2": {
+    //  "type": "string",
+    //  "value": "[concat('AccountEndpoint=https://', variables('cosmosDbAccount'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccount')), providers('Microsoft.DocumentDB', 'databaseAccounts').apiVersions[0]).primaryMasterKey, ';Database=sample-storage;')]"
+    //},
     "sbq_connectionStringPE": {
       "type": "string",
       "value": "[Concat('Endpoint=sb://',variables('service_bus_namespace'),'.servicebus.windows.net/;SharedAccessKeyName=',parameters('AuthRules_sb_queuePE'),';SharedAccessKey=',listkeys(variables('queueAuthorizationRuleResourceId1'),variables('sbVersion')).primaryKey,';EntityPath=',variables('service_bus_queuePendingevents'))]"
@@ -1555,14 +1625,15 @@
     "IoTHubName": {
       "type": "string",
       "value": "[variables('ioTHubName')]"
-    },
-    "cosmosDbAccount": {
-      "type": "string",
-      "value": "[concat('Sample1Cosmosdb', uniqueString(resourceGroup().id))]"
-    },
-    "cosmosDbAccountPrimaryKey": {
-      "type": "string",
-      "value": "[listkeys(variables('cosmosDbAccount'), variables('cosmosDBsbVersion')).primaryMasterKey]"
     }
+    //,
+    //"cosmosDbAccount": {
+    //  "type": "string",
+    //  "value": "[concat('Sample1Cosmosdb', parameters('UniqueString'))]"
+    //},
+    //"cosmosDbAccountPrimaryKey": {
+    //  "type": "string",
+    //  "value": "[listkeys(variables('cosmosDbAccount'), variables('cosmosDBsbVersion')).primaryMasterKey]"
+    //}
   }
 }
